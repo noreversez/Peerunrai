@@ -141,3 +141,54 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
 
   return result;
 }
+
+// =============================================
+// suggestUsers: หาชื่อใกล้เคียงเมื่อค้นไม่เจอ
+// ใช้ Fuzzy Search แล้วคืนค่า top 5 ชื่อเต็ม
+// =============================================
+export async function suggestUsers(keyword) {
+  const rankRegex = /^(พล\.ต\.อ\.|พล\.ต\.ท\.|พล\.ต\.ต\.|พ\.ต\.อ\.|พ\.ต\.ท\.|พ\.ต\.ต\.|ร\.ต\.อ\.|ร\.ต\.ท\.|ร\.ต\.ต\.|ด\.ต\.|จ\.ส\.ต\.|ส\.ต\.อ\.|ส\.ต\.ท\.|ส\.ต\.ต\.|ว่าที่|นาย|นาง|นางสาว|ผู้กอง|หมวด|สารวัตร|จ่า|หมู่|นต\.)(หญิง)?\s*/g;
+  const cleanKeyword = keyword.replace(rankRegex, '').trim();
+  const rawTokens    = cleanKeyword.split(/\s+/).filter(t => t);
+  if (rawTokens.length === 0) return [];
+
+  const normTokens = rawTokens.map(t => normIndex(t));
+  const totalChars = normTokens.join('').length;
+  if (totalChars < 3) return []; // คำสั้นเกินไป ไม่แนะนำ
+
+  let suggestions = [];
+
+  // ลอง RPC v2 แบบ fuzzy ก่อน
+  const { data: rpcData, error: rpcError } = await supabase.rpc('search_users_v2', {
+    search_tokens: normTokens,
+    use_fuzzy:     true,
+  });
+
+  if (!rpcError && rpcData && rpcData.length > 0) {
+    suggestions = rpcData;
+  } else {
+    // fallback: search_users_fuzzy
+    const { data: fuzzyData, error: fuzzyErr } = await supabase.rpc('search_users_fuzzy', {
+      search_tokens: rawTokens,
+    });
+    if (!fuzzyErr && fuzzyData) {
+      suggestions = fuzzyData;
+    }
+  }
+
+  if (suggestions.length === 0) return [];
+
+  // คืนค่าเป็นชื่อเต็ม (ไม่ซ้ำ) สูงสุด 5 รายการ
+  const seen = new Set();
+  const result = [];
+  for (const u of suggestions) {
+    const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+    if (fullName && !seen.has(fullName)) {
+      seen.add(fullName);
+      result.push(fullName);
+    }
+    if (result.length >= 5) break;
+  }
+  return result;
+}
+

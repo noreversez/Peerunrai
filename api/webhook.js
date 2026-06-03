@@ -1,6 +1,6 @@
 import { supabase } from '../utils/supabase.js';
 import { replyWithText, replyWithFlex, showLoadingAnimation } from '../utils/line.js';
-import { searchUsers } from '../utils/search.js';
+import { searchUsers, suggestUsers } from '../utils/search.js';
 
 export default async function handler(req, res) {
   // รองรับเฉพาะ POST method จาก LINE
@@ -74,13 +74,34 @@ export default async function handler(req, res) {
           const { results, total } = await searchUsers(keyword, page, 30);
           
           if (total === 0) {
-            await replyWithText(replyToken,
-              `❌ ไม่พบข้อมูล นรต. ที่ตรงกับ "${keyword}"\n\n` +
-              `💡 ลองใหม่ด้วย:\n` +
-              `• ระบุนามสกุลแทนชื่อ\n` +
-              `• พิมพ์ "ชื่อ นามสกุล" เว้นวรรคคั่น\n` +
-              `• พิมพ์ "ชื่อ รุ่น" เช่น "สมชาย 79"`
-            );
+            // ลองหาชื่อใกล้เคียงก่อน
+            const suggestions = await suggestUsers(keyword);
+
+            if (suggestions.length > 0) {
+              // สร้าง Quick Reply buttons สำหรับแต่ละชื่อที่แนะนำ
+              const quickReplyItems = suggestions.map(name => ({
+                type: 'action',
+                action: {
+                  type: 'message',
+                  label: name.length > 20 ? name.substring(0, 20) : name,
+                  text: name,
+                },
+              }));
+
+              await replyWithText(
+                replyToken,
+                `❌ ไม่พบ "${keyword}" ในฐานข้อมูลครับ\n\n🤔 หรือคุณหมายถึง...\n${suggestions.map((n, i) => `${i + 1}. ${n}`).join('\n')}\n\nกดเลือกชื่อด้านล่างได้เลยครับ 👇`,
+                quickReplyItems
+              );
+            } else {
+              await replyWithText(replyToken,
+                `❌ ไม่พบข้อมูล นรต. ที่ตรงกับ "${keyword}"\n\n` +
+                `💡 ลองใหม่ด้วย:\n` +
+                `• ระบุนามสกุลแทนชื่อ\n` +
+                `• พิมพ์ "ชื่อ นามสกุล" เว้นวรรคคั่น\n` +
+                `• พิมพ์ "ชื่อ รุ่น" เช่น "สมชาย 79"`
+              );
+            }
           } else {
             await replyWithFlex(replyToken, keyword, results, total, page, 30, keyword);
           }
