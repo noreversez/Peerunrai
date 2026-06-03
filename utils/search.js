@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { cacheGet, cacheSet } from './cache.js';
 
 // =============================================
 // normIndex: ตัดสระ + รวมพยัญชนะเสียงเดียวกัน
@@ -78,6 +79,14 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
     return { results: [], total: 0 };
   }
 
+  // ตรวจสอบ Cache ก่อน (ถ้าเคยค้นหาแล้วใน 60 วินาทีที่ผ่านมา คืนค่าทันที)
+  const cacheKey = `${normTokens.join('|')}:${page}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) {
+    console.log('Cache hit:', cacheKey);
+    return cached;
+  }
+
   let data = null;
 
   // 3. ลองใช้ RPC search_users_v2 (เร็วที่สุด)
@@ -121,9 +130,14 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
 
   if (!data || data.length === 0) return { results: [], total: 0 };
 
-  const totalFound  = data.length;
-  const startIndex  = (page - 1) * itemsPerPage;
+  const totalFound     = data.length;
+  const startIndex     = (page - 1) * itemsPerPage;
   const limitedResults = data.slice(startIndex, startIndex + itemsPerPage);
 
-  return { results: limitedResults, total: totalFound };
+  const result = { results: limitedResults, total: totalFound };
+
+  // บันทึก Cache
+  cacheSet(cacheKey, result);
+
+  return result;
 }
