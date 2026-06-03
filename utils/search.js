@@ -28,7 +28,8 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
   // วนลูปสร้างเงื่อนไขสำหรับแต่ละคำ (ต้องเจอครบทุกคำ ถึงจะดึงมา)
   tokens.forEach(t => {
     const normT = normIndex(t);
-    const orCond = `norm_first.ilike.%${normT}%,norm_last.ilike.%${normT}%,generation.eq.${t},first_name.ilike.%${t}%,last_name.ilike.%${t}%`;
+    // ค้นหาเฉพาะฟิลด์ที่มี GIN Index (norm_first, norm_last) เพื่อความรวดเร็ว
+    const orCond = `norm_first.ilike.%${normT}%,norm_last.ilike.%${normT}%,generation.eq.${t}`;
     query = query.or(orCond);
   });
   
@@ -40,8 +41,9 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
     return { results: [], total: 0 };
   }
   
-  // ก๊อก 2: หากไม่พบข้อมูล (พบน้อยกว่า 3 คน) ให้สลับไปใช้ Fuzzy Search (ค้นหาคำคล้าย)
-  if (!candidates || candidates.length < 3) {
+  // ก๊อก 2: หากไม่พบข้อมูล (พบน้อยกว่า 3 คน) และคำค้นหายาวพอ (>= 3 ตัวอักษร) ให้สลับไปใช้ Fuzzy Search
+  const totalLength = tokens.join("").length;
+  if ((!candidates || candidates.length < 3) && totalLength >= 3) {
     const { data: fuzzyCandidates, error: fuzzyError } = await supabase.rpc('search_users_fuzzy', { search_tokens: tokens });
     if (!fuzzyError && fuzzyCandidates && fuzzyCandidates.length > 0) {
       // เอาผลลัพธ์จาก Fuzzy Search มาใช้แทน
