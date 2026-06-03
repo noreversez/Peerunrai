@@ -44,19 +44,43 @@ export default async function handler(req, res) {
         }
 
         if (isSearch && keyword) {
-          if (userId) await showLoadingAnimation(userId);
-          
-          if (keyword.length <= 1) {
-            await replyWithText(replyToken, `⚠️ คำค้นหา "${keyword}" สั้นเกินไป\nกรุณาระบุนามสกุลแทน หรือพิมพ์ "ชื่อ นามสกุล" เว้นวรรคเพิ่มเติมครับ`);
+          // ตรวจสอบว่าเป็นชื่อสั้น (คำเดียว + ไม่เกิน 4 ตัวอักษร) หรือไม่
+          const tokens = keyword.trim().split(/\s+/);
+          const isSingleShortToken = tokens.length === 1 && keyword.replace(/\s+/g, '').length <= 4;
+
+          if (keyword.replace(/\s+/g, '').length <= 1) {
+            // สั้นเกินไปมาก (1 ตัวอักษร)
+            await replyWithText(replyToken, `⚠️ คำค้นหา "${keyword}" สั้นเกินไปครับ\nกรุณาพิมพ์ชื่อให้ยาวกว่านี้`);
             continue;
           }
+
+          if (isSingleShortToken) {
+            // ชื่อสั้น เช่น "นที", "แอน", "บิ๊ก" → แนะนำก่อนค้นหา
+            await replyWithText(replyToken,
+              `🔍 กำลังค้นหา "${keyword}"...\n\n` +
+              `💡 เคล็ดลับ: ชื่อ "${keyword}" อาจมีหลายคนครับ\n` +
+              `ลองค้นหาแบบเหล่านี้จะแม่นยำกว่า:\n` +
+              `• พิมพ์ชื่อ + นามสกุล เช่น "${keyword} สกุลจริง"\n` +
+              `• พิมพ์ชื่อ + รุ่น เช่น "${keyword} 79"\n` +
+              `• พิมพ์นามสกุลแทนชื่อ`
+            );
+            // ยังคงค้นหาต่อ แต่แจ้งล่วงหน้าก่อน
+          }
+
+          if (userId) await showLoadingAnimation(userId);
 
           // ค้นหาใน Supabase
           const page = 1; 
           const { results, total } = await searchUsers(keyword, page, 30);
           
           if (total === 0) {
-            await replyWithText(replyToken, `❌ ไม่พบข้อมูล นรต. ที่ตรงกับ "${keyword}"`);
+            await replyWithText(replyToken,
+              `❌ ไม่พบข้อมูล นรต. ที่ตรงกับ "${keyword}"\n\n` +
+              `💡 ลองใหม่ด้วย:\n` +
+              `• ระบุนามสกุลแทนชื่อ\n` +
+              `• พิมพ์ "ชื่อ นามสกุล" เว้นวรรคคั่น\n` +
+              `• พิมพ์ "ชื่อ รุ่น" เช่น "สมชาย 79"`
+            );
           } else {
             await replyWithFlex(replyToken, keyword, results, total, page, 30, keyword);
           }
