@@ -33,19 +33,28 @@ async function directSearch(tokens) {
     console.error('directSearch error:', error);
     return [];
   }
-  // เรียงลำดับที่ JS
+  // เรียงลำดับที่ JS — ให้คะแนนแบบแม่นยำสูง
   return (data || []).map(u => {
     let score = 0;
-    const fn = (u.first_name || '').replace(/\s+/g, '');
-    const ln = (u.last_name  || '').replace(/\s+/g, '');
+    const fn  = (u.norm_first || u.first_name || '').replace(/\s+/g, '');
+    const ln  = (u.norm_last  || u.last_name  || '').replace(/\s+/g, '');
     const gen = u.generation || '';
+
     tokens.forEach(t => {
       const nt = normIndex(t);
-      if (gen === t)           score += 100;
-      if (fn.startsWith(nt))   score += 80;
-      else if (fn.includes(nt)) score += 40;
-      if (ln.startsWith(nt))   score += 60;
-      else if (ln.includes(nt)) score += 30;
+
+      // รุ่น ตรงเป๊ะ
+      if (gen === t) score += 200;
+
+      // ชื่อ
+      if (fn === nt)                  score += 300; // ชื่อตรงเป๊ะ 100%
+      else if (fn.startsWith(nt))     score += 150; // ชื่อขึ้นต้นด้วยคำค้นหา
+      else if (fn.includes(nt))       score +=  80; // ชื่อมีคำค้นหาอยู่
+
+      // นามสกุล
+      if (ln === nt)                  score += 250; // นามสกุลตรงเป๊ะ 100%
+      else if (ln.startsWith(nt))     score += 120; // นามสกุลขึ้นต้นด้วยคำค้นหา
+      else if (ln.includes(nt))       score +=  60; // นามสกุลมีคำค้นหาอยู่
     });
     return { ...u, score };
   }).sort((a, b) => b.score - a.score);
@@ -81,9 +90,9 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
     // RPC ทำงานได้ → ใช้ผลจาก RPC
     data = rpcData;
 
-    // Fuzzy Fallback ถ้าเจอน้อย
+    // Fuzzy Fallback เฉพาะเมื่อไม่มีผลลัพธ์เลย และคำยาวพอ
     const totalChars = normTokens.join('').length;
-    if (data.length < 3 && totalChars >= 3) {
+    if (data.length === 0 && totalChars >= 3) {
       const { data: fuzzyData, error: fuzzyErr } = await supabase.rpc('search_users_v2', {
         search_tokens: normTokens,
         use_fuzzy:     true,
@@ -97,14 +106,15 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
     console.warn('search_users_v2 not found, falling back to direct query');
     data = await directSearch(rawTokens);
 
-    // Fuzzy Fallback ด้วย search_users_fuzzy (ถ้ามี)
+    // Fuzzy Fallback เฉพาะเมื่อไม่มีผลลัพธ์เลย
     const totalChars = normTokens.join('').length;
-    if (data.length < 3 && totalChars >= 3) {
+    if (data.length === 0 && totalChars >= 3) {
       const { data: fuzzyData, error: fuzzyErr } = await supabase.rpc('search_users_fuzzy', {
         search_tokens: rawTokens,
       });
       if (!fuzzyErr && fuzzyData && fuzzyData.length > 0) {
-        data = fuzzyData.map(u => ({ ...u, score: 0 }));
+        // ให้คะแนนผลจาก Fuzzy ต่ำกว่า Exact เสมอ
+        data = fuzzyData.map(u => ({ ...u, score: 1 }));
       }
     }
   }
