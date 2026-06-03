@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ค้นหา นรต. · Peerunrai</title>
+  <meta name="description" content="ระบบค้นหานักเรียนนายร้อยตำรวจ รองรับการค้นหาด้วยชื่อ นามสกุล หรือรุ่น" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #ffffff;
+      --bg-2:        #f7f7f5;
+      --bg-3:        #efefed;
+      --border:      #e3e2e0;
+      --border-dark: #c9c8c6;
+      --text-1:      #1a1a18;
+      --text-2:      #4a4a48;
+      --text-3:      #8a8a88;
+      --accent:      #2563eb;
+      --accent-soft: #eff6ff;
+      --accent-hover:#1d4ed8;
+      --red:         #dc2626;
+      --green:       #16a34a;
+      --radius:      10px;
+      --shadow-sm:   0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+      --shadow-md:   0 4px 12px rgba(0,0,0,.08), 0 2px 6px rgba(0,0,0,.04);
+      --shadow-lg:   0 12px 32px rgba(0,0,0,.10), 0 4px 12px rgba(0,0,0,.06);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:          #191919;
+        --bg-2:        #202020;
+        --bg-3:        #2a2a2a;
+        --border:      #333333;
+        --border-dark: #444444;
+        --text-1:      #f0f0ee;
+        --text-2:      #b0b0ae;
+        --text-3:      #666664;
+        --accent-soft: #1e3a6e;
+        --shadow-sm:   0 1px 3px rgba(0,0,0,.3);
+        --shadow-md:   0 4px 12px rgba(0,0,0,.4);
+        --shadow-lg:   0 12px 32px rgba(0,0,0,.5);
+      }
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Sarabun', 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text-1);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-1);
+      letter-spacing: -.02em;
+      text-decoration: none;
+    }
+    .logo span { color: var(--accent); }
+    .badge {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--bg-3);
+      color: var(--text-3);
+      letter-spacing: .02em;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 64px 24px 40px;
+      text-align: center;
+      max-width: 720px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .hero-icon {
+      width: 52px; height: 52px;
+      background: var(--accent);
+      border-radius: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      font-size: 24px;
+      box-shadow: 0 4px 16px rgba(37,99,235,.3);
+    }
+    .hero h1 {
+      font-size: clamp(24px, 5vw, 38px);
+      font-weight: 700;
+      letter-spacing: -.03em;
+      color: var(--text-1);
+      line-height: 1.2;
+      margin-bottom: 10px;
+    }
+    .hero p {
+      font-size: 16px;
+      color: var(--text-3);
+      font-weight: 400;
+      line-height: 1.6;
+    }
+
+    /* ── Search Box ── */
+    .search-wrap {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 24px;
+      width: 100%;
+    }
+    .search-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+      background: var(--bg);
+      border: 1.5px solid var(--border-dark);
+      border-radius: 14px;
+      box-shadow: var(--shadow-md);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .search-box:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12), var(--shadow-md);
+    }
+    .search-icon {
+      position: absolute;
+      left: 18px;
+      color: var(--text-3);
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+    #searchInput {
+      width: 100%;
+      padding: 18px 56px 18px 52px;
+      font-size: 17px;
+      font-family: 'Sarabun', sans-serif;
+      font-weight: 400;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--text-1);
+    }
+    #searchInput::placeholder { color: var(--text-3); }
+    .clear-btn {
+      position: absolute;
+      right: 14px;
+      background: var(--bg-3);
+      border: none;
+      border-radius: 50%;
+      width: 28px; height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-3);
+      transition: background .15s, color .15s;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .clear-btn.visible { opacity: 1; pointer-events: auto; }
+    .clear-btn:hover { background: var(--border-dark); color: var(--text-1); }
+
+    /* ── Tags ── */
+    .search-hints {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      justify-content: center;
+    }
+    .hint-tag {
+      font-size: 13px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      background: var(--bg-2);
+      color: var(--text-2);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: background .12s, border-color .12s, color .12s;
+      font-family: 'Sarabun', sans-serif;
+      user-select: none;
+    }
+    .hint-tag:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ── Results Section ── */
+    .results-section {
+      max-width: 680px;
+      margin: 32px auto 80px;
+      padding: 0 24px;
+      width: 100%;
+    }
+
+    .results-meta {
+      font-size: 13px;
+      color: var(--text-3);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .results-meta strong { color: var(--text-2); }
+
+    /* ── Result Card ── */
+    .result-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg);
+      margin-bottom: 8px;
+      transition: background .12s, border-color .12s, box-shadow .12s;
+      cursor: default;
+      animation: fadeUp .2s ease both;
+    }
+    .result-card:hover {
+      background: var(--bg-2);
+      border-color: var(--border-dark);
+      box-shadow: var(--shadow-sm);
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .result-card:nth-child(1)  { animation-delay: .02s }
+    .result-card:nth-child(2)  { animation-delay: .04s }
+    .result-card:nth-child(3)  { animation-delay: .06s }
+    .result-card:nth-child(4)  { animation-delay: .08s }
+    .result-card:nth-child(5)  { animation-delay: .10s }
+    .result-card:nth-child(n+6){ animation-delay: .12s }
+
+    .avatar {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent);
+      flex-shrink: 0;
+      border: 1.5px solid var(--border);
+    }
+    .card-body { flex: 1; min-width: 0; }
+    .card-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-1);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-name mark {
+      background: rgba(37,99,235,.12);
+      color: var(--accent);
+      border-radius: 3px;
+      padding: 0 1px;
+      font-weight: 700;
+    }
+    .card-sub {
+      font-size: 12.5px;
+      color: var(--text-3);
+      margin-top: 2px;
+    }
+    .gen-badge {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--bg-3);
+      color: var(--text-2);
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+
+    /* ── States ── */
+    .state-box {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--text-3);
+    }
+    .state-box .state-icon { font-size: 40px; margin-bottom: 12px; }
+    .state-box p { font-size: 15px; line-height: 1.6; }
+    .state-box strong { color: var(--text-2); }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 28px; height: 28px;
+      border: 2.5px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: 60px auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Pagination ── */
+    .pagination {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 24px;
+    }
+    .page-btn {
+      padding: 7px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-2);
+      font-size: 13.5px;
+      font-family: 'Sarabun', sans-serif;
+      cursor: pointer;
+      transition: background .12s, border-color .12s, color .12s;
+    }
+    .page-btn:hover { background: var(--bg-3); border-color: var(--border-dark); }
+    .page-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    .page-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: auto;
+      padding: 20px 24px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-3);
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 480px) {
+      .hero { padding: 40px 16px 28px; }
+      .search-wrap, .results-section { padding: 0 16px; }
+      #searchInput { font-size: 16px; padding: 16px 48px 16px 46px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="/">Peerun<span>rai</span></a>
+  <span class="badge">นรต.</span>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="hero-icon">👮</div>
+    <h1>ค้นหานักเรียนนายร้อยตำรวจ</h1>
+    <p>ค้นหาด้วยชื่อ นามสกุล หรือรุ่น รองรับการสะกดผิดและยศนำหน้า</p>
+  </section>
+
+  <div class="search-wrap">
+    <div class="search-box">
+      <svg class="search-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+      </svg>
+      <input
+        id="searchInput"
+        type="search"
+        placeholder="ชื่อ นามสกุล หรือรุ่น เช่น สมชาย 79..."
+        autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
+        aria-label="ค้นหา นรต."
+      />
+      <button class="clear-btn" id="clearBtn" aria-label="ล้างคำค้นหา" title="ล้าง">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="search-hints" id="hints">
+      <span class="hint-tag" data-q="สมชาย">สมชาย</span>
+      <span class="hint-tag" data-q="79">รุ่น 79</span>
+      <span class="hint-tag" data-q="ไชยานุพงศ์">ไชยานุพงศ์</span>
+      <span class="hint-tag" data-q="80">รุ่น 80</span>
+      <span class="hint-tag" data-q="วงศ์">วงศ์</span>
+    </div>
+  </div>
+
+  <section class="results-section" id="resultsSection">
+    <div class="state-box" id="stateEmpty">
+      <div class="state-icon">🔍</div>
+      <p>พิมพ์ชื่อ นามสกุล หรือรุ่นเพื่อเริ่มค้นหา<br/>
+      <strong>รองรับการค้นหาด้วยยศ เช่น "ผู้กองสมชาย"</strong></p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Peerunrai · ระบบค้นหา นรต. · ข้อมูลเพื่อการใช้งานภายใน
+</footer>
+
+<script>
+  const input     = document.getElementById('searchInput');
+  const clearBtn  = document.getElementById('clearBtn');
+  const section   = document.getElementById('resultsSection');
+  const hints     = document.getElementById('hints');
+
+  let debounceTimer = null;
+  let currentPage   = 1;
+  let currentQuery  = '';
+  let totalResults  = 0;
+  const PER_PAGE    = 20;
+
+  // ── Hint tags ──
+  hints.querySelectorAll('.hint-tag').forEach(tag => {
+    tag.addEventListener('click', () => {
+      input.value = tag.dataset.q;
+      input.dispatchEvent(new Event('input'));
+      input.focus();
+    });
+  });
+
+  // ── Input events ──
+  input.addEventListener('input', () => {
+    const q = input.value.trim();
+    clearBtn.classList.toggle('visible', q.length > 0);
+    hints.style.display = q.length > 0 ? 'none' : 'flex';
+    currentPage = 1;
+    clearTimeout(debounceTimer);
+    if (q.length === 0) { showEmpty(); return; }
+    if (q.replace(/\s/g,'').length <= 1) { return; }
+    debounceTimer = setTimeout(() => doSearch(q, 1), 300);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    clearBtn.classList.remove('visible');
+    hints.style.display = 'flex';
+    showEmpty();
+    input.focus();
+  });
+
+  // ── Search ──
+  async function doSearch(q, page) {
+    currentQuery = q;
+    currentPage  = page;
+    showLoading();
+
+    try {
+      const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}`);
+      const json = await res.json();
+      if (!res.ok) { showError(json.error || 'เกิดข้อผิดพลาด'); return; }
+      totalResults = json.total;
+      renderResults(json);
+    } catch (e) {
+      showError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+    }
+  }
+
+  // ── Render ──
+  function renderResults({ results, total, keyword, page }) {
+    section.innerHTML = '';
+
+    if (total === 0) {
+      section.innerHTML = `
+        <div class="state-box">
+          <div class="state-icon">😕</div>
+          <p>ไม่พบข้อมูลที่ตรงกับ <strong>"${esc(keyword)}"</strong><br/>
+          ลองค้นหาด้วยนามสกุล หรือเพิ่มรุ่น เช่น "${esc(keyword)} 79"</p>
+        </div>`;
+      return;
+    }
+
+    const start = (page - 1) * PER_PAGE + 1;
+    const end   = Math.min(page * PER_PAGE, total);
+
+    const meta = document.createElement('div');
+    meta.className = 'results-meta';
+    meta.innerHTML = `พบ <strong>${total.toLocaleString('th')}</strong> รายการ · แสดง ${start}–${end}`;
+    section.appendChild(meta);
+
+    results.forEach((u, i) => {
+      const fullName  = `${u.first_name} ${u.last_name}`.trim();
+      const initial   = u.first_name?.[0] || '?';
+      const highlight = highlightMatch(fullName, keyword);
+      const card = document.createElement('div');
+      card.className = 'result-card';
+      card.style.animationDelay = `${Math.min(i * 0.025, 0.15)}s`;
+      card.innerHTML = `
+        <div class="avatar">${esc(initial)}</div>
+        <div class="card-body">
+          <div class="card-name">${highlight}</div>
+          <div class="card-sub">นักเรียนนายร้อยตำรวจ</div>
+        </div>
+        ${u.generation ? `<span class="gen-badge">รุ่น ${esc(u.generation)}</span>` : ''}
+      `;
+      section.appendChild(card);
+    });
+
+    // Pagination
+    const totalPages = Math.ceil(total / PER_PAGE);
+    if (totalPages > 1) {
+      const pag = document.createElement('div');
+      pag.className = 'pagination';
+
+      const prevBtn = makePageBtn('← ก่อนหน้า', page <= 1);
+      prevBtn.addEventListener('click', () => doSearch(currentQuery, page - 1));
+      pag.appendChild(prevBtn);
+
+      // page numbers (max 5 visible)
+      const range = getPageRange(page, totalPages);
+      range.forEach(p => {
+        if (p === '…') {
+          const el = document.createElement('span');
+          el.className = 'page-btn';
+          el.textContent = '…';
+          el.style.pointerEvents = 'none';
+          pag.appendChild(el);
+        } else {
+          const btn = makePageBtn(p, false);
+          if (p === page) btn.classList.add('active');
+          btn.addEventListener('click', () => doSearch(currentQuery, p));
+          pag.appendChild(btn);
+        }
+      });
+
+      const nextBtn = makePageBtn('ถัดไป →', page >= totalPages);
+      nextBtn.addEventListener('click', () => doSearch(currentQuery, page + 1));
+      pag.appendChild(nextBtn);
+
+      section.appendChild(pag);
+    }
+  }
+
+  function makePageBtn(label, disabled) {
+    const btn = document.createElement('button');
+    btn.className = 'page-btn';
+    btn.textContent = label;
+    btn.disabled = disabled;
+    return btn;
+  }
+
+  function getPageRange(cur, total) {
+    if (total <= 7) return Array.from({length: total}, (_, i) => i + 1);
+    if (cur <= 4)  return [1, 2, 3, 4, 5, '…', total];
+    if (cur >= total - 3) return [1, '…', total-4, total-3, total-2, total-1, total];
+    return [1, '…', cur-1, cur, cur+1, '…', total];
+  }
+
+  function highlightMatch(text, query) {
+    const safe = esc(text);
+    const tokens = query.trim().split(/\s+/).filter(t => t.length > 1);
+    if (!tokens.length) return safe;
+    const pattern = tokens.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    return safe.replace(new RegExp(`(${pattern})`, 'gi'), '<mark>$1</mark>');
+  }
+
+  // ── States ──
+  function showLoading() {
+    section.innerHTML = '<div class="spinner"></div>';
+  }
+  function showEmpty() {
+    section.innerHTML = `
+      <div class="state-box" id="stateEmpty">
+        <div class="state-icon">🔍</div>
+        <p>พิมพ์ชื่อ นามสกุล หรือรุ่นเพื่อเริ่มค้นหา<br/>
+        <strong>รองรับการค้นหาด้วยยศ เช่น "ผู้กองสมชาย"</strong></p>
+      </div>`;
+  }
+  function showError(msg) {
+    section.innerHTML = `
+      <div class="state-box">
+        <div class="state-icon">⚠️</div>
+        <p>${esc(msg)}</p>
+      </div>`;
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Keyboard shortcut: "/" to focus ──
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && document.activeElement !== input) {
+      e.preventDefault();
+      input.focus();
+    }
+  });
+</script>
+</body>
+</html>
