@@ -19,27 +19,72 @@ export function normIndex(str) {
 }
 
 // =============================================
-// buildScores: ให้คะแนนความแม่นยำให้ชุดข้อมูล
+// buildScores: ให้คะแนนความแม่นยำ 2 ชั้น
+//
+// ชั้น 1 — ตรวจสอบชื่อต้นฉบับ (คะแนนสูงสุด)
+//   → ถ้าชื่อจริงตรงกับคำค้นหาโดยตรง = สำคัญที่สุด
+//
+// ชั้น 2 — ตรวจสอบชื่อ normalized (fallback)
+//   → ใช้เมื่อชื่อต้นฉบับไม่ตรง แต่เสียงเหมือนกัน
 // =============================================
 function buildScores(data, tokens) {
   return (data || []).map(u => {
     let score = 0;
-    const fn  = (u.norm_first || u.first_name || '').replace(/\s+/g, '');
-    const ln  = (u.norm_last  || u.last_name  || '').replace(/\s+/g, '');
-    const gen = u.generation || '';
+
+    // ข้อมูลต้นฉบับ (ไม่ผ่าน normalize)
+    const rawFn  = (u.first_name || '').replace(/\s+/g, '');
+    const rawLn  = (u.last_name  || '').replace(/\s+/g, '');
+    // ข้อมูล normalized (จาก DB หรือ normalize ใหม่)
+    const normFn = (u.norm_first || normIndex(rawFn)).replace(/\s+/g, '');
+    const normLn = (u.norm_last  || normIndex(rawLn)).replace(/\s+/g, '');
+    const gen    = u.generation || '';
+
     tokens.forEach(t => {
       const nt = normIndex(t);
-      if (gen === t)              score += 200;
-      if (fn === nt)              score += 300;
-      else if (fn.startsWith(nt)) score += 150;
-      else if (fn.includes(nt))   score +=  80;
-      if (ln === nt)              score += 250;
-      else if (ln.startsWith(nt)) score += 120;
-      else if (ln.includes(nt))   score +=  60;
+
+      // ── ชั้น 1: ตรวจสอบกับชื่อ/นามสกุลต้นฉบับ (ลำดับความสำคัญสูงสุด) ──
+      if (gen === t) {
+        score += 800; // รุ่นตรงเป๊ะ
+      }
+      if (rawFn === t) {
+        score += 1000; // ชื่อต้นฉบับตรงเป๊ะ 100%
+      } else if (rawFn.startsWith(t)) {
+        score += 600;  // ชื่อต้นฉบับขึ้นต้นด้วยคำค้นหา
+      } else if (rawFn.includes(t)) {
+        score += 350;  // ชื่อต้นฉบับมีคำค้นหาอยู่
+      }
+
+      if (rawLn === t) {
+        score += 900;  // นามสกุลต้นฉบับตรงเป๊ะ 100%
+      } else if (rawLn.startsWith(t)) {
+        score += 550;  // นามสกุลต้นฉบับขึ้นต้นด้วยคำค้นหา
+      } else if (rawLn.includes(t)) {
+        score += 300;  // นามสกุลต้นฉบับมีคำค้นหาอยู่
+      }
+
+      // ── ชั้น 2: ตรวจสอบกับค่า normalized (fallback เมื่อชื่อต้นฉบับไม่ตรง) ──
+      // คะแนนชั้น 2 ต้องต่ำกว่าชั้น 1 เสมอ
+      if (normFn === nt) {
+        score += 150;
+      } else if (normFn.startsWith(nt)) {
+        score += 80;
+      } else if (normFn.includes(nt)) {
+        score += 40;
+      }
+
+      if (normLn === nt) {
+        score += 120;
+      } else if (normLn.startsWith(nt)) {
+        score += 60;
+      } else if (normLn.includes(nt)) {
+        score += 30;
+      }
     });
+
     return { ...u, score };
   }).sort((a, b) => b.score - a.score);
 }
+
 
 // =============================================
 // directSearch: fallback query เมื่อ RPC ไม่มี
