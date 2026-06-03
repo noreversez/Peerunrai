@@ -88,8 +88,8 @@ function buildScores(data, tokens) {
 
 // =============================================
 // directSearch: fallback query เมื่อ RPC ไม่มี
-// ใช้ PREFIX (ชื่อ%) สำหรับคำสั้น (< 3 ตัว)
-// ใช้ CONTAINS (%ชื่อ%) สำหรับคำยาว (>= 3 ตัว)
+// ค้นหาทั้งชื่อต้นฉบับ + ชื่อ normalized พร้อมกัน
+// เพื่อให้ครอบคลุมทุกกรณี แม้ DB ยังไม่ normalize
 // =============================================
 async function directSearch(rawTokens) {
   let query = supabase.from('users').select('*');
@@ -97,11 +97,23 @@ async function directSearch(rawTokens) {
     const nt = normIndex(t);
     let orCond;
     if (nt.length < 3) {
-      // คำสั้น: ใช้ PREFIX เท่านั้น → เร็วกว่า, ลดผลลัพธ์ที่ไม่เกี่ยวข้อง
-      orCond = `norm_first.ilike.${nt}%,norm_last.ilike.${nt}%,generation.eq.${t}`;
+      // คำสั้น: ใช้ PREFIX — ค้นทั้งต้นฉบับและ normalized
+      orCond = [
+        `norm_first.ilike.${nt}%`,
+        `norm_last.ilike.${nt}%`,
+        `first_name.ilike.${t}%`,
+        `last_name.ilike.${t}%`,
+        `generation.eq.${t}`,
+      ].join(',');
     } else {
-      // คำยาว: ใช้ CONTAINS → ครอบคลุมกว่า
-      orCond = `norm_first.ilike.%${nt}%,norm_last.ilike.%${nt}%,generation.eq.${t}`;
+      // คำยาว: ใช้ CONTAINS — ค้นทั้งต้นฉบับและ normalized
+      orCond = [
+        `norm_first.ilike.%${nt}%`,
+        `norm_last.ilike.%${nt}%`,
+        `first_name.ilike.%${t}%`,   // ← เพิ่ม: ค้นหาชื่อต้นฉบับโดยตรง
+        `last_name.ilike.%${t}%`,    // ← เพิ่ม: ค้นหานามสกุลต้นฉบับโดยตรง
+        `generation.eq.${t}`,
+      ].join(',');
     }
     query = query.or(orCond);
   });
