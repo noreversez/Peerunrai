@@ -51,7 +51,7 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
     const chunk = results.slice(i * itemsPerBubble, (i + 1) * itemsPerBubble);
     const listContents = chunk.flatMap((user, index) => {
       const itemNumber = ((page - 1) * itemsPerPage) + (i * itemsPerBubble) + index + 1;
-      const fullName = `${user.first_name} ${user.last_name}`.trim();
+      const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
       const nameNoSpace = fullName.replace(/\s+/g, "").toLowerCase();
       const isExactMatch = nameNoSpace.includes(mainSearchTerm) && mainSearchTerm.length > 1;
 

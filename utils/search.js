@@ -32,8 +32,8 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
   // จัดอันดับผู้ใช้แบบเดียวกับ Google Apps Script เดิม (Relevance Scoring)
   let scoredUsers = candidates.map(u => {
     let score = 0;
-    const uFirstNoSpace = u.first_name.replace(/\s+/g, "");
-    const uLastNoSpace = u.last_name.replace(/\s+/g, "");
+    const uFirstNoSpace = (u.first_name || "").replace(/\s+/g, "");
+    const uLastNoSpace = (u.last_name || "").replace(/\s+/g, "");
 
     // ให้คะแนนพิเศษสำหรับคนที่ตรงเป๊ะๆ ก่อน
     if (u.generation === cleanKey) score += 100;
