@@ -52,7 +52,7 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
   }
   
   // ให้คะแนนความแม่นยำ (Relevance Scoring)
-  let scoredUsers = candidates.map(u => {
+  let scoredUsers = (candidates || []).map(u => {
     let score = 0;
     const uFirstNoSpace = (u.first_name || "").replace(/\s+/g, "");
     const uLastNoSpace = (u.last_name || "").replace(/\s+/g, "");
