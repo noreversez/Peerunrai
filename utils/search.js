@@ -14,38 +14,52 @@ export function normIndex(str) {
 }
 
 export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
-  const cleanKey = keyword.replace(/\s+/g, "");
-  const normKey = normIndex(cleanKey);
+  // ตัดยศต่างๆ ออกก่อน เพื่อให้เหลือแค่ชื่อ
+  const rankRegex = /^(พล\.ต\.อ\.|พล\.ต\.ท\.|พล\.ต\.ต\.|พ\.ต\.อ\.|พ\.ต\.ท\.|พ\.ต\.ต\.|ร\.ต\.อ\.|ร\.ต\.ท\.|ร\.ต\.ต\.|ด\.ต\.|จ\.ส\.ต\.|ส\.ต\.อ\.|ส\.ต\.ท\.|ส\.ต\.ต\.|ว่าที่|นาย|นาง|นางสาว|ผู้กอง|หมวด|สารวัตร|จ่า|หมู่|นต\.)(หญิง)?\s*/g;
+  const cleanKeyword = keyword.replace(rankRegex, "").trim();
   
-  // ดึงข้อมูล 300 คนแรกที่ตรงกับเงื่อนไขจาก Supabase (ใช้เวลาไม่กี่มิลลิวินาที)
-  const { data: candidates, error } = await supabase
-    .from('users')
-    .select('*')
-    .or(`norm_first.ilike.%${normKey}%,norm_last.ilike.%${normKey}%,generation.eq.${cleanKey},first_name.ilike.%${cleanKey}%,last_name.ilike.%${cleanKey}%`)
-    .limit(300);
+  // แยกคำค้นหาด้วยช่องว่าง (เช่น "สมชาย ใจดี" จะกลายเป็น ["สมชาย", "ใจดี"])
+  const tokens = cleanKeyword.split(/\s+/).filter(t => t);
+  if (tokens.length === 0) return { results: [], total: 0 };
+  
+  // สร้าง Query ของ Supabase
+  let query = supabase.from('users').select('*');
+  
+  // วนลูปสร้างเงื่อนไขสำหรับแต่ละคำ (ต้องเจอครบทุกคำ ถึงจะดึงมา)
+  tokens.forEach(t => {
+    const normT = normIndex(t);
+    const orCond = `norm_first.ilike.%${normT}%,norm_last.ilike.%${normT}%,generation.eq.${t},first_name.ilike.%${t}%,last_name.ilike.%${t}%`;
+    query = query.or(orCond);
+  });
+  
+  // ดึงข้อมูล 300 คนแรกที่ตรงเงื่อนไข
+  const { data: candidates, error } = await query.limit(300);
     
   if (error) {
     console.error("Supabase Search Error:", error);
     return { results: [], total: 0 };
   }
   
-  // จัดอันดับผู้ใช้แบบเดียวกับ Google Apps Script เดิม (Relevance Scoring)
+  // ให้คะแนนความแม่นยำ (Relevance Scoring)
   let scoredUsers = candidates.map(u => {
     let score = 0;
     const uFirstNoSpace = (u.first_name || "").replace(/\s+/g, "");
     const uLastNoSpace = (u.last_name || "").replace(/\s+/g, "");
+    const uGen = u.generation || "";
 
-    // ให้คะแนนพิเศษสำหรับคนที่ตรงเป๊ะๆ ก่อน
-    if (u.generation === cleanKey) score += 100;
-    
-    if (uFirstNoSpace.startsWith(cleanKey)) score += 80;
-    else if (uFirstNoSpace.includes(cleanKey)) score += 40;
-    
-    if (uLastNoSpace.startsWith(cleanKey)) score += 60;
-    else if (uLastNoSpace.includes(cleanKey)) score += 30;
+    // นำแต่ละคำค้นหามาให้คะแนน
+    tokens.forEach(t => {
+      if (uGen === t) score += 100; // หากตรงรุ่นพอดี ให้คะแนนเยอะมาก
+      
+      if (uFirstNoSpace.startsWith(t)) score += 80;
+      else if (uFirstNoSpace.includes(t)) score += 40;
+      
+      if (uLastNoSpace.startsWith(t)) score += 60;
+      else if (uLastNoSpace.includes(t)) score += 30;
+    });
 
     // โฟกัส นรต. รุ่น 40-79 เป็นพิเศษ
-    const genNum = parseInt(u.generation);
+    const genNum = parseInt(uGen);
     if (!isNaN(genNum) && genNum >= 40) {
       score += 15;
     }
