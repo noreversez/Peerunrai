@@ -8,25 +8,56 @@ export function normIndex(str) {
   if (!str) return '';
   const cleanStr = str.replace(/[่้๊๋็์ิีึืุูเแโใไัาอ]/g, '');
   return cleanStr
-    .replace(/[ศษสซ]/g,     'ส')
-    .replace(/[ณน]/g,        'น')
-    .replace(/[ฬลร]/g,       'ล')
-    .replace(/[ญย]/g,        'ย')
-    .replace(/[ขฃคฅฆก]/g,   'ก')
-    .replace(/[พผภปบ]/g,     'พ')
-    .replace(/[ทธฐฒตถฎฏดฑ]/g,'ต')
-    .replace(/[ชฉฌจ]/g,     'จ');
+    .replace(/[ศษสซ]/g,      'ส')
+    .replace(/[ณน]/g,         'น')
+    .replace(/[ฬลร]/g,        'ล')
+    .replace(/[ญย]/g,         'ย')
+    .replace(/[ขฃคฅฆก]/g,    'ก')
+    .replace(/[พผภปบ]/g,      'พ')
+    .replace(/[ทธฐฒตถฎฏดฑ]/g, 'ต')
+    .replace(/[ชฉฌจ]/g,      'จ');
 }
 
 // =============================================
-// directSearch: ค้นหาตรงๆ ผ่าน Supabase query
-// ใช้เป็น fallback เมื่อ RPC ยังไม่ถูกสร้าง
+// buildScores: ให้คะแนนความแม่นยำให้ชุดข้อมูล
 // =============================================
-async function directSearch(tokens) {
+function buildScores(data, tokens) {
+  return (data || []).map(u => {
+    let score = 0;
+    const fn  = (u.norm_first || u.first_name || '').replace(/\s+/g, '');
+    const ln  = (u.norm_last  || u.last_name  || '').replace(/\s+/g, '');
+    const gen = u.generation || '';
+    tokens.forEach(t => {
+      const nt = normIndex(t);
+      if (gen === t)              score += 200;
+      if (fn === nt)              score += 300;
+      else if (fn.startsWith(nt)) score += 150;
+      else if (fn.includes(nt))   score +=  80;
+      if (ln === nt)              score += 250;
+      else if (ln.startsWith(nt)) score += 120;
+      else if (ln.includes(nt))   score +=  60;
+    });
+    return { ...u, score };
+  }).sort((a, b) => b.score - a.score);
+}
+
+// =============================================
+// directSearch: fallback query เมื่อ RPC ไม่มี
+// ใช้ PREFIX (ชื่อ%) สำหรับคำสั้น (< 3 ตัว)
+// ใช้ CONTAINS (%ชื่อ%) สำหรับคำยาว (>= 3 ตัว)
+// =============================================
+async function directSearch(rawTokens) {
   let query = supabase.from('users').select('*');
-  tokens.forEach(t => {
-    const normT = normIndex(t);
-    const orCond = `norm_first.ilike.%${normT}%,norm_last.ilike.%${normT}%,generation.eq.${t}`;
+  rawTokens.forEach(t => {
+    const nt = normIndex(t);
+    let orCond;
+    if (nt.length < 3) {
+      // คำสั้น: ใช้ PREFIX เท่านั้น → เร็วกว่า, ลดผลลัพธ์ที่ไม่เกี่ยวข้อง
+      orCond = `norm_first.ilike.${nt}%,norm_last.ilike.${nt}%,generation.eq.${t}`;
+    } else {
+      // คำยาว: ใช้ CONTAINS → ครอบคลุมกว่า
+      orCond = `norm_first.ilike.%${nt}%,norm_last.ilike.%${nt}%,generation.eq.${t}`;
+    }
     query = query.or(orCond);
   });
   const { data, error } = await query.limit(300);
@@ -34,52 +65,31 @@ async function directSearch(tokens) {
     console.error('directSearch error:', error);
     return [];
   }
-  // เรียงลำดับที่ JS — ให้คะแนนแบบแม่นยำสูง
-  return (data || []).map(u => {
-    let score = 0;
-    const fn  = (u.norm_first || u.first_name || '').replace(/\s+/g, '');
-    const ln  = (u.norm_last  || u.last_name  || '').replace(/\s+/g, '');
-    const gen = u.generation || '';
-
-    tokens.forEach(t => {
-      const nt = normIndex(t);
-
-      // รุ่น ตรงเป๊ะ
-      if (gen === t) score += 200;
-
-      // ชื่อ
-      if (fn === nt)                  score += 300; // ชื่อตรงเป๊ะ 100%
-      else if (fn.startsWith(nt))     score += 150; // ชื่อขึ้นต้นด้วยคำค้นหา
-      else if (fn.includes(nt))       score +=  80; // ชื่อมีคำค้นหาอยู่
-
-      // นามสกุล
-      if (ln === nt)                  score += 250; // นามสกุลตรงเป๊ะ 100%
-      else if (ln.startsWith(nt))     score += 120; // นามสกุลขึ้นต้นด้วยคำค้นหา
-      else if (ln.includes(nt))       score +=  60; // นามสกุลมีคำค้นหาอยู่
-    });
-    return { ...u, score };
-  }).sort((a, b) => b.score - a.score);
+  return buildScores(data, rawTokens);
 }
 
 // =============================================
-// searchUsers: ลอง RPC v2 ก่อน → fallback direct
+// searchUsers: ค้นหาหลัก (max 1-2 DB calls)
+// Flow: Cache → RPC Exact → Direct Exact → Done
+// ไม่มี Fuzzy ในนี้ → Fuzzy ทำที่ webhook แทน
 // =============================================
 export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
   // 1. ตัดยศตำรวจ/ทหารออก
   const rankRegex = /^(พล\.ต\.อ\.|พล\.ต\.ท\.|พล\.ต\.ต\.|พ\.ต\.อ\.|พ\.ต\.ท\.|พ\.ต\.ต\.|ร\.ต\.อ\.|ร\.ต\.ท\.|ร\.ต\.ต\.|ด\.ต\.|จ\.ส\.ต\.|ส\.ต\.อ\.|ส\.ต\.ท\.|ส\.ต\.ต\.|ว่าที่|นาย|นาง|นางสาว|ผู้กอง|หมวด|สารวัตร|จ่า|หมู่|นต\.)(หญิง)?\s*/g;
   const cleanKeyword = keyword.replace(rankRegex, '').trim();
 
-  // 2. แยกคำ (token)
+  // 2. แยก token
   const rawTokens = cleanKeyword.split(/\s+/).filter(t => t);
   if (rawTokens.length === 0) return { results: [], total: 0 };
 
-  // ป้องกันคำสั้นเกินไป (< 2 ตัวอักษร ทุก token)
   const normTokens = rawTokens.map(t => normIndex(t));
+
+  // ป้องกัน: ทุก token สั้น < 2 ตัวอักษร
   if (normTokens.every(t => t.length < 2)) {
     return { results: [], total: 0 };
   }
 
-  // ตรวจสอบ Cache ก่อน (ถ้าเคยค้นหาแล้วใน 60 วินาทีที่ผ่านมา คืนค่าทันที)
+  // 3. ตรวจ Cache
   const cacheKey = `${normTokens.join('|')}:${page}`;
   const cached = cacheGet(cacheKey);
   if (cached) {
@@ -89,44 +99,22 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
 
   let data = null;
 
-  // 3. ลองใช้ RPC search_users_v2 (เร็วที่สุด)
+  // 4. ลอง RPC search_users_v2 ก่อน (1 DB call)
   const { data: rpcData, error: rpcError } = await supabase.rpc('search_users_v2', {
     search_tokens: normTokens,
     use_fuzzy:     false,
   });
 
   if (!rpcError && rpcData !== null) {
-    // RPC ทำงานได้ → ใช้ผลจาก RPC
     data = rpcData;
-
-    // Fuzzy Fallback เฉพาะเมื่อไม่มีผลลัพธ์เลย และคำยาวพอ
-    const totalChars = normTokens.join('').length;
-    if (data.length === 0 && totalChars >= 3) {
-      const { data: fuzzyData, error: fuzzyErr } = await supabase.rpc('search_users_v2', {
-        search_tokens: normTokens,
-        use_fuzzy:     true,
-      });
-      if (!fuzzyErr && fuzzyData && fuzzyData.length > 0) {
-        data = fuzzyData;
-      }
-    }
   } else {
-    // RPC ยังไม่มี → ใช้การค้นหาตรงๆ แทน
-    console.warn('search_users_v2 not found, falling back to direct query');
+    // fallback: direct query (1 DB call)
+    console.warn('search_users_v2 not found, using direct query');
     data = await directSearch(rawTokens);
-
-    // Fuzzy Fallback เฉพาะเมื่อไม่มีผลลัพธ์เลย
-    const totalChars = normTokens.join('').length;
-    if (data.length === 0 && totalChars >= 3) {
-      const { data: fuzzyData, error: fuzzyErr } = await supabase.rpc('search_users_fuzzy', {
-        search_tokens: rawTokens,
-      });
-      if (!fuzzyErr && fuzzyData && fuzzyData.length > 0) {
-        // ให้คะแนนผลจาก Fuzzy ต่ำกว่า Exact เสมอ
-        data = fuzzyData.map(u => ({ ...u, score: 1 }));
-      }
-    }
   }
+
+  // *** ไม่มี Fuzzy Fallback ในนี้อีกต่อไป ***
+  // Fuzzy + "หรือคุณหมายถึง" จัดการที่ webhook.js แทน
 
   if (!data || data.length === 0) return { results: [], total: 0 };
 
@@ -135,16 +123,13 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
   const limitedResults = data.slice(startIndex, startIndex + itemsPerPage);
 
   const result = { results: limitedResults, total: totalFound };
-
-  // บันทึก Cache
   cacheSet(cacheKey, result);
-
   return result;
 }
 
 // =============================================
-// suggestUsers: หาชื่อใกล้เคียงเมื่อค้นไม่เจอ
-// ใช้ Fuzzy Search แล้วคืนค่า top 5 ชื่อเต็ม
+// suggestUsers: ค้นหา Fuzzy เพื่อแนะนำชื่อใกล้เคียง
+// เรียกจาก webhook.js เฉพาะเมื่อ total === 0
 // =============================================
 export async function suggestUsers(keyword) {
   const rankRegex = /^(พล\.ต\.อ\.|พล\.ต\.ท\.|พล\.ต\.ต\.|พ\.ต\.อ\.|พ\.ต\.ท\.|พ\.ต\.ต\.|ร\.ต\.อ\.|ร\.ต\.ท\.|ร\.ต\.ต\.|ด\.ต\.|จ\.ส\.ต\.|ส\.ต\.อ\.|ส\.ต\.ท\.|ส\.ต\.ต\.|ว่าที่|นาย|นาง|นางสาว|ผู้กอง|หมวด|สารวัตร|จ่า|หมู่|นต\.)(หญิง)?\s*/g;
@@ -154,11 +139,13 @@ export async function suggestUsers(keyword) {
 
   const normTokens = rawTokens.map(t => normIndex(t));
   const totalChars = normTokens.join('').length;
-  if (totalChars < 3) return []; // คำสั้นเกินไป ไม่แนะนำ
+
+  // คำสั้นเกินไปสำหรับ Fuzzy (pg_trgm ต้องการ >= 3 ตัวอักษร)
+  if (totalChars < 3) return [];
 
   let suggestions = [];
 
-  // ลอง RPC v2 แบบ fuzzy ก่อน
+  // ลอง RPC v2 fuzzy ก่อน
   const { data: rpcData, error: rpcError } = await supabase.rpc('search_users_v2', {
     search_tokens: normTokens,
     use_fuzzy:     true,
@@ -171,14 +158,12 @@ export async function suggestUsers(keyword) {
     const { data: fuzzyData, error: fuzzyErr } = await supabase.rpc('search_users_fuzzy', {
       search_tokens: rawTokens,
     });
-    if (!fuzzyErr && fuzzyData) {
-      suggestions = fuzzyData;
-    }
+    if (!fuzzyErr && fuzzyData) suggestions = fuzzyData;
   }
 
   if (suggestions.length === 0) return [];
 
-  // คืนค่าเป็นชื่อเต็ม (ไม่ซ้ำ) สูงสุด 5 รายการ
+  // คืนชื่อเต็มไม่ซ้ำ สูงสุด 5 รายการ
   const seen = new Set();
   const result = [];
   for (const u of suggestions) {
@@ -191,4 +176,3 @@ export async function suggestUsers(keyword) {
   }
   return result;
 }
-
