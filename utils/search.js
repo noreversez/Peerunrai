@@ -32,12 +32,21 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
     query = query.or(orCond);
   });
   
-  // ดึงข้อมูล 300 คนแรกที่ตรงเงื่อนไข
-  const { data: candidates, error } = await query.limit(300);
+  // ดึงข้อมูล 300 คนแรกที่ตรงเงื่อนไข (Exact/ILike)
+  let { data: candidates, error } = await query.limit(300);
     
   if (error) {
     console.error("Supabase Search Error:", error);
     return { results: [], total: 0 };
+  }
+  
+  // ก๊อก 2: หากไม่พบข้อมูล (พบน้อยกว่า 3 คน) ให้สลับไปใช้ Fuzzy Search (ค้นหาคำคล้าย)
+  if (!candidates || candidates.length < 3) {
+    const { data: fuzzyCandidates, error: fuzzyError } = await supabase.rpc('search_users_fuzzy', { search_tokens: tokens });
+    if (!fuzzyError && fuzzyCandidates && fuzzyCandidates.length > 0) {
+      // เอาผลลัพธ์จาก Fuzzy Search มาใช้แทน
+      candidates = fuzzyCandidates;
+    }
   }
   
   // ให้คะแนนความแม่นยำ (Relevance Scoring)
