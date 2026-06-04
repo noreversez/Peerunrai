@@ -39,14 +39,15 @@ BEGIN
     -- 1. สร้าง t_old (ลบสระออกอย่างเดียว)
     t_old := regexp_replace(t, '[่้๊๋็์ิีึืุูเแโใไัาอ]', '', 'g');
     
-    -- 2. สร้าง nt (แปลงตัวอักษรแบบเข้มงวด)
-    nt := regexp_replace(t_old, '[ขฃคฅฆ]', 'ก', 'g');
-    nt := regexp_replace(nt, '[จฉชซฌศษส]', 'จ', 'g');
-    nt := regexp_replace(nt, '[ฎฏฐฑฒดตถทธ]', 'ด', 'g');
-    nt := regexp_replace(nt, '[บปผฝพฟภ]', 'บ', 'g');
-    nt := regexp_replace(nt, '[ญย]', 'ย', 'g');
-    nt := regexp_replace(nt, '[รลฬ]', 'ร', 'g');
+    -- 2. สร้าง nt (แปลงตัวอักษรแบบเข้มงวดให้ตรงกับ JavaScript)
+    nt := regexp_replace(t_old, '[ศษสซ]', 'ส', 'g');
     nt := regexp_replace(nt, '[ณน]', 'น', 'g');
+    nt := regexp_replace(nt, '[ฬลร]', 'ล', 'g');
+    nt := regexp_replace(nt, '[ญย]', 'ย', 'g');
+    nt := regexp_replace(nt, '[ขฃคฅฆก]', 'ก', 'g');
+    nt := regexp_replace(nt, '[พผภปบ]', 'พ', 'g');
+    nt := regexp_replace(nt, '[ทธฐฒตถฎฏดฑ]', 'ต', 'g');
+    nt := regexp_replace(nt, '[ชฉฌจ]', 'จ', 'g');
     
     -- 3. เช็คว่าเป็นตัวเลขหรือไม่
     is_num := t ~ '^[0-9]+$';
