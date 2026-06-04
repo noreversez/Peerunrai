@@ -837,16 +837,11 @@
 <footer>
   <div style="margin-bottom: 6px;">พี่รุ่นไรน้อง · ระบบค้นหา นรต.</div>
   <div style="font-size: 11px; color: var(--text-3);">
-    <span id="liveUpdateTime"></span> · <a href="#" id="footerTos" style="color: #3b82f6; font-weight: 600; text-decoration: none;">TOS</a>
+    <span id="liveUpdateTime">อัปเดตล่าสุด วันที่ 4 มิถุนายน 2569 เวลา 12.30 น. Version 2.0</span> · <a href="#" id="footerTos" style="color: #3b82f6; font-weight: 600; text-decoration: none;">TOS</a>
   </div>
 </footer>
 
 <script>
-  // ตั้งค่าเวลาปัจจุบัน
-  document.getElementById('liveUpdateTime').textContent = 'อัปเดตล่าสุด ' + new Date().toLocaleString('th-TH', { 
-    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-  });
-
   const input     = document.getElementById('searchInput');
   const clearBtn  = document.getElementById('clearBtn');
   const section   = document.getElementById('resultsSection');
