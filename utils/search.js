@@ -32,19 +32,19 @@ function buildScores(data, tokens) {
     let score = 0;
     let isMatch = false;
 
-    const fn     = (u.first_name || '').trim();
-    const ln     = (u.last_name  || '').trim();
+    const fn      = (u.first_name || '').trim();
+    const ln      = (u.last_name  || '').trim();
     const fnClean = fn.replace(/\s+/g, '');
     const lnClean = ln.replace(/\s+/g, '');
-    const gen    = String(u.generation || '');
+    const gen     = String(u.generation || '');
 
     // ── ชั้น 1: ตรวจสอบตรงๆ กับชื่อต้นฉบับ (เหมือนระบบเก่า) ──
     // ถ้าทุก token พบในชื่อจริง นามสกุลจริง หรือรุ่น → การันตี 100%
     const matchAllAnywhere = tokens.every(t => {
       const tNorm = normIndex(t);
-      return fn.includes(t)              ||
-             ln.includes(t)              ||
-             gen === t                   ||
+      return fn.includes(t)               ||
+             ln.includes(t)               ||
+             gen === t                    ||
              normIndex(fn).includes(tNorm) ||
              normIndex(ln).includes(tNorm);
     });
@@ -79,40 +79,57 @@ function buildScores(data, tokens) {
 }
 
 // =============================================
-// directSearch: ค้นหาตรงจาก DB
-// - ค้นหาในชื่อ/นามสกุลต้นฉบับ (ครอบคลุมสุด)
-// - ค้นหาใน norm_first/norm_last (สำหรับ Index)
-// เหมือนที่ระบบเก่าค้นหาในทุก field
+// directSearch: ค้นหาตรงจาก DB แบบ 2 รอบ
+//
+// รอบ 1: ค้นหาในชื่อ/นามสกุล "ต้นฉบับ" ก่อน (แม่นที่สุด)
+//         → ถ้าเจอ → หยุดทันที ไม่ต้องค้นต่อ
+// รอบ 2: ถ้าไม่เจอเลย → fallback ค้นหาด้วย norm
+//         (เผื่อผู้ใช้สะกดผิดหรือชื่อ normalized ไม่ตรง)
 // =============================================
 async function directSearch(rawTokens) {
-  let query = supabase.from('users').select('*');
+  // ── รอบ 1: ค้นหาชื่อ/นามสกุลต้นฉบับ ──
+  {
+    let query = supabase.from('users').select('*');
+    rawTokens.forEach(t => {
+      const conds = [
+        `first_name.ilike.%${t}%`,
+        `last_name.ilike.%${t}%`,
+      ];
+      if (/^\d+$/.test(t)) conds.push(`generation.eq.${t}`);
+      query = query.or(conds.join(','));
+    });
 
-  rawTokens.forEach(t => {
-    const nt    = normIndex(t);
-    const tOld  = t.replace(/[ิีึืุูเแโใไัาอ่้๊๋็์]/g, '');
-    const isNum = /^\d+$/.test(t);
-
-    const conds = [
-      // ค้นหาชื่อ/นามสกุลต้นฉบับโดยตรง (เหมือนระบบเก่า)
-      `first_name.ilike.%${t}%`,
-      `last_name.ilike.%${t}%`,
-      // ค้นหาจาก norm_first / norm_last (ผ่าน Index)
-      `norm_first.ilike.%${nt}%`,
-      `norm_last.ilike.%${nt}%`,
-      `norm_first.ilike.%${tOld}%`,
-      `norm_last.ilike.%${tOld}%`,
-    ];
-
-    if (isNum) conds.push(`generation.eq.${t}`);
-    query = query.or(conds.join(','));
-  });
-
-  const { data, error } = await query.limit(500);
-  if (error) {
-    console.error('directSearch error:', error);
-    return [];
+    const { data, error } = await query.limit(300);
+    if (!error && data && data.length > 0) {
+      console.log('directSearch round1 (raw):', rawTokens.join(','), '→', data.length);
+      return buildScores(data, rawTokens);
+    }
+    if (error) console.warn('directSearch round1 error:', error.message);
   }
-  return buildScores(data || [], rawTokens);
+
+  // ── รอบ 2: Fallback ค้นหาด้วย norm (เมื่อไม่เจอในรอบ 1) ──
+  {
+    let query = supabase.from('users').select('*');
+    rawTokens.forEach(t => {
+      const nt   = normIndex(t);
+      const tOld = t.replace(/[ิีึืุูเแโใไัาอ่้๊๋็์]/g, '');
+      const conds = [
+        `norm_first.ilike.%${nt}%`,
+        `norm_last.ilike.%${nt}%`,
+        `norm_first.ilike.%${tOld}%`,
+        `norm_last.ilike.%${tOld}%`,
+      ];
+      query = query.or(conds.join(','));
+    });
+
+    const { data, error } = await query.limit(300);
+    if (error) {
+      console.error('directSearch round2 error:', error.message);
+      return [];
+    }
+    console.log('directSearch round2 (norm fallback):', rawTokens.join(','), '→', (data || []).length);
+    return buildScores(data || [], rawTokens);
+  }
 }
 
 // =============================================
@@ -143,7 +160,7 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
     data = buildScores(rpcData, rawTokens);
     console.log('RPC v4 hit:', rawTokens.join(','), '→', data.length, 'results');
   } else {
-    // Fallback: directSearch ค้นหาทั้งชื่อต้นฉบับและ norm
+    // Fallback: directSearch แบบ 2 รอบ (ต้นฉบับก่อน → norm ถ้าไม่เจอ)
     if (rpcError) console.warn('RPC v4 error, fallback:', rpcError?.message);
     data = await directSearch(rawTokens);
     console.log('directSearch:', rawTokens.join(','), '→', data.length, 'results');
