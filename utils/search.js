@@ -19,166 +19,40 @@ export function normIndex(str) {
 }
 
 // =============================================
-// buildScores: ให้คะแนนความแม่นยำ 2 ชั้น
-//
-// ชั้น 1 — ตรวจสอบชื่อต้นฉบับ (คะแนนสูงสุด)
-//   → ถ้าชื่อจริงตรงกับคำค้นหาโดยตรง = สำคัญที่สุด
-//
-// ชั้น 2 — ตรวจสอบชื่อ normalized (fallback)
-//   → ใช้เมื่อชื่อต้นฉบับไม่ตรง แต่เสียงเหมือนกัน
-// =============================================
-function buildScores(data, tokens) {
-  return (data || []).map(u => {
-    let score = 0;
-
-    // ข้อมูลต้นฉบับ (ไม่ผ่าน normalize)
-    const rawFn  = (u.first_name || '').replace(/\s+/g, '');
-    const rawLn  = (u.last_name  || '').replace(/\s+/g, '');
-    // ข้อมูล normalized (จาก DB หรือ normalize ใหม่)
-    const normFn = (u.norm_first || normIndex(rawFn)).replace(/\s+/g, '');
-    const normLn = (u.norm_last  || normIndex(rawLn)).replace(/\s+/g, '');
-    const gen    = u.generation || '';
-
-    tokens.forEach(t => {
-      const nt = normIndex(t);
-
-      // ── ชั้น 1: ตรวจสอบกับชื่อ/นามสกุลต้นฉบับ (ลำดับความสำคัญสูงสุด) ──
-      if (gen === t) {
-        score += 800; // รุ่นตรงเป๊ะ
-      }
-      if (rawFn === t) {
-        score += 1000; // ชื่อต้นฉบับตรงเป๊ะ 100%
-      } else if (rawFn.startsWith(t)) {
-        score += 600;  // ชื่อต้นฉบับขึ้นต้นด้วยคำค้นหา
-      } else if (rawFn.includes(t)) {
-        score += 350;  // ชื่อต้นฉบับมีคำค้นหาอยู่
-      }
-
-      if (rawLn === t) {
-        score += 900;  // นามสกุลต้นฉบับตรงเป๊ะ 100%
-      } else if (rawLn.startsWith(t)) {
-        score += 550;  // นามสกุลต้นฉบับขึ้นต้นด้วยคำค้นหา
-      } else if (rawLn.includes(t)) {
-        score += 300;  // นามสกุลต้นฉบับมีคำค้นหาอยู่
-      }
-
-      // ── ชั้น 2: ตรวจสอบกับค่า normalized (fallback เมื่อชื่อต้นฉบับไม่ตรง) ──
-      // คะแนนชั้น 2 ต้องต่ำกว่าชั้น 1 เสมอ
-      if (normFn === nt) {
-        score += 150;
-      } else if (normFn.startsWith(nt)) {
-        score += 80;
-      } else if (normFn.includes(nt)) {
-        score += 40;
-      }
-
-      if (normLn === nt) {
-        score += 120;
-      } else if (normLn.startsWith(nt)) {
-        score += 60;
-      } else if (normLn.includes(nt)) {
-        score += 30;
-      }
-    });
-
-    return { ...u, score };
-  }).sort((a, b) => b.score - a.score);
-}
-
-
-// =============================================
-// directSearch: fallback query เมื่อ RPC ไม่มี
-// ค้นหาทั้งชื่อต้นฉบับ + ชื่อ normalized พร้อมกัน
-// เพื่อให้ครอบคลุมทุกกรณี แม้ DB ยังไม่ normalize
-// =============================================
-async function directSearch(rawTokens) {
-  let query = supabase.from('users').select('*');
-  rawTokens.forEach(t => {
-    const nt = normIndex(t);
-    const isNum = !isNaN(t) && t.trim() !== '';
-    
-    // สร้างคำค้นหาแบบเก่า (ลบแค่สระ ไม่แปลอักษร) เพื่อรองรับ DB ที่ยังไม่อัปเดต
-    const tOld = t.replace(/[่้๊๋็์ิีึืุูเแโใไัาอ]/g, '');
-
-    // สร้างเงื่อนไขเฉพาะ norm_first / norm_last ที่มี Index (หลีกเลี่ยง Full Table Scan)
-    let conds;
-    if (nt.length < 3) {
-      conds = [
-        `norm_first.ilike.${nt}%`,
-        `norm_last.ilike.${nt}%`,
-        `norm_first.ilike.${tOld}%`,
-        `norm_last.ilike.${tOld}%`
-      ];
-    } else {
-      conds = [
-        `norm_first.ilike.%${nt}%`,
-        `norm_last.ilike.%${nt}%`,
-        `norm_first.ilike.%${tOld}%`,
-        `norm_last.ilike.%${tOld}%`
-      ];
-    }
-    
-    // เพิ่มเงื่อนไขค้นหารุ่น (เฉพาะถ้าคำค้นหาเป็นตัวเลข ป้องกัน Type Error ถ้า DB เป็น Integer)
-    if (isNum) {
-      conds.push(`generation.eq.${t}`);
-    }
-    
-    query = query.or(conds.join(','));
-  });
-  
-  const { data, error } = await query.limit(300);
-  if (error) {
-    console.error('directSearch error:', error);
-    return [];
-  }
-  return buildScores(data, rawTokens);
-}
-
-// =============================================
-// searchUsers: ค้นหาหลัก (max 1-2 DB calls)
-// Flow: Cache → RPC Exact → Direct Exact → Done
-// ไม่มี Fuzzy ในนี้ → Fuzzy ทำที่ webhook แทน
+// searchUsers: ค้นหาหลักผ่าน Supabase RPC v4
+// (รวม Exact, Partial, Fuzzy และ Ranking ไว้ใน DB แล้ว)
 // =============================================
 export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
   // 1. ตัดยศตำรวจ/ทหารออก
   const rankRegex = /^(พล\.ต\.อ\.|พล\.ต\.ท\.|พล\.ต\.ต\.|พ\.ต\.อ\.|พ\.ต\.ท\.|พ\.ต\.ต\.|ร\.ต\.อ\.|ร\.ต\.ท\.|ร\.ต\.ต\.|ด\.ต\.|จ\.ส\.ต\.|ส\.ต\.อ\.|ส\.ต\.ท\.|ส\.ต\.ต\.|ว่าที่|นาย|นาง|นางสาว|ผู้กอง|หมวด|สารวัตร|จ่า|หมู่|นต\.)(หญิง)?\s*/g;
   const cleanKeyword = keyword.replace(rankRegex, '').trim();
 
-  // 2. แยก token
+  if (!cleanKeyword) return { results: [], total: 0 };
+
+  // 2. แยกคำค้นหาตามช่องว่าง
   const rawTokens = cleanKeyword.split(/\s+/).filter(t => t);
   if (rawTokens.length === 0) return { results: [], total: 0 };
 
-  const normTokens = rawTokens.map(t => normIndex(t));
-
-  // ป้องกัน: ทุก token สั้น < 2 ตัวอักษร
-  if (normTokens.every(t => t.length < 2)) {
-    return { results: [], total: 0 };
-  }
-
-  // 3. ตรวจ Cache
-  const cacheKey = `${normTokens.join('|')}:${page}`;
+  // 3. ตรวจสอบ Cache
+  const cacheKey = `search_v4_${rawTokens.join('_')}_p${page}`;
   const cached = cacheGet(cacheKey);
   if (cached) {
     console.log('Cache hit:', cacheKey);
     return cached;
   }
 
-  let data = null;
-
-  // 4. ลองใช้ RPC search_users_v3 ก่อน (เพื่อความเร็วสูงสุดและจัดการ Index ภายใน DB)
-  const { data: rpcData, error: rpcError } = await supabase.rpc('search_users_v3', {
+  // 4. เรียกใช้ RPC search_users_v4 ซึ่งจัดการทุกอย่างเรียบร้อยแล้ว
+  const { data: rpcData, error: rpcError } = await supabase.rpc('search_users_v4', {
     raw_tokens: rawTokens
   });
 
-  if (!rpcError && rpcData !== null) {
-    // นำผลลัพธ์จาก DB มาคิดคะแนนความแม่นยำชั้นสูงสุด (Exact Match) ด้วย JavaScript
-    data = buildScores(rpcData, rawTokens);
-  } else {
-    // 5. ถ้ายังไม่ได้สร้าง RPC (fallback) จะใช้ directSearch แทน
-    data = await directSearch(rawTokens);
+  if (rpcError) {
+    console.error('search_users_v4 error:', rpcError);
+    return { results: [], total: 0 };
   }
 
-  if (!data || data.length === 0) return { results: [], total: 0 };
+  const data = rpcData || [];
+  if (data.length === 0) return { results: [], total: 0 };
 
   const totalFound     = data.length;
   const startIndex     = (page - 1) * itemsPerPage;
@@ -200,42 +74,30 @@ export async function suggestUsers(keyword) {
   if (rawTokens.length === 0) return [];
 
   const rawTotalChars = rawTokens.join('').length;
-  const normTokens = rawTokens.map(t => normIndex(t));
 
   // ป้องกัน DB Timeout: ถ้าคำค้นหาสั้นเกินไป (น้อยกว่า 4 ตัวอักษร) ให้ข้าม Fuzzy
-  // เพราะ Fuzzy บนคำสั้นจะใช้เวลาประมวลผลนานมากและได้ผลลัพธ์ที่ไม่เกี่ยวข้องกันเยอะ
   if (rawTotalChars < 4) return [];
 
-  let suggestions = [];
-
-  // ลอง RPC v2 fuzzy ก่อน
-  const { data: rpcData, error: rpcError } = await supabase.rpc('search_users_v2', {
-    search_tokens: normTokens,
-    use_fuzzy:     true,
+  // ใช้งาน search_users_v4 สำหรับ Suggest Users ด้วย (ไม่ต้องมี search_users_v2 อีกต่อไป)
+  const { data: rpcData, error: rpcError } = await supabase.rpc('search_users_v4', {
+    raw_tokens: rawTokens
   });
 
-  if (!rpcError && rpcData && rpcData.length > 0) {
-    suggestions = rpcData;
-  } else {
-    // fallback: search_users_fuzzy
-    const { data: fuzzyData, error: fuzzyErr } = await supabase.rpc('search_users_fuzzy', {
-      search_tokens: rawTokens,
-    });
-    if (!fuzzyErr && fuzzyData) suggestions = fuzzyData;
+  if (rpcError || !rpcData || rpcData.length === 0) {
+    return [];
   }
-
-  if (suggestions.length === 0) return [];
 
   // คืนชื่อเต็มไม่ซ้ำ สูงสุด 5 รายการ
   const seen = new Set();
   const result = [];
-  for (const u of suggestions) {
+  for (const u of rpcData) {
     const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
     if (fullName && !seen.has(fullName)) {
       seen.add(fullName);
       result.push(fullName);
+      if (result.length >= 5) break;
     }
-    if (result.length >= 5) break;
   }
+
   return result;
 }
