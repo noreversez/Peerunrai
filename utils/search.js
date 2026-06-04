@@ -165,9 +165,17 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
 
   let data = null;
 
-  // 4. ใช้ directSearch เป็นหลัก (1 DB call)
-  // directSearch มีข้อดีคือค้นหาทั้ง raw และ norm พร้อมกัน ทำให้เจอชื่อแน่นอน
-  data = await directSearch(rawTokens);
+  // 4. ลองใช้ RPC search_users_v3 ก่อน (เพื่อความเร็วสูงสุดและจัดการ Index ภายใน DB)
+  const { data: rpcData, error: rpcError } = await supabase.rpc('search_users_v3', {
+    raw_tokens: rawTokens
+  });
+
+  if (!rpcError && rpcData !== null) {
+    data = rpcData;
+  } else {
+    // 5. ถ้ายังไม่ได้สร้าง RPC (fallback) จะใช้ directSearch แทน
+    data = await directSearch(rawTokens);
+  }
 
   if (!data || data.length === 0) return { results: [], total: 0 };
 
