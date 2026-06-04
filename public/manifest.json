@@ -1,0 +1,17 @@
+{
+  "name": "พี่รุ่นไรน้อง",
+  "short_name": "พี่รุ่นไรน้อง",
+  "description": "ระบบค้นหานักเรียนนายร้อยตำรวจ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "https://img2.pic.in.th/ChatGPT-Image-4-..-2569-09_57_31.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
