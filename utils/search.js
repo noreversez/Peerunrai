@@ -19,39 +19,96 @@ export function normIndex(str) {
 }
 
 // =============================================
-// searchUsers: ค้นหาหลักผ่าน Supabase RPC v4
-// (รวม Exact, Partial, Fuzzy และ Ranking ไว้ใน DB แล้ว)
+// directSearch: Fallback กรณีที่ RPC ยังไม่ได้สร้าง
+// ค้นหาผ่าน norm_first/norm_last ซึ่งมี Index
+// =============================================
+async function directSearch(rawTokens) {
+  let query = supabase.from('users').select('*');
+  rawTokens.forEach(t => {
+    const nt    = normIndex(t);
+    const tOld  = t.replace(/[่้๊๋็์ิีึืุูเแโใไัาอ]/g, '');
+    const isNum = !isNaN(t) && t.trim() !== '';
+
+    let conds;
+    if (nt.length < 3) {
+      conds = [
+        `norm_first.ilike.${nt}%`,
+        `norm_last.ilike.${nt}%`,
+        `norm_first.ilike.${tOld}%`,
+        `norm_last.ilike.${tOld}%`,
+      ];
+    } else {
+      conds = [
+        `norm_first.ilike.%${nt}%`,
+        `norm_last.ilike.%${nt}%`,
+        `norm_first.ilike.%${tOld}%`,
+        `norm_last.ilike.%${tOld}%`,
+      ];
+    }
+    if (isNum) conds.push(`generation.eq.${t}`);
+    query = query.or(conds.join(','));
+  });
+
+  const { data, error } = await query.limit(300);
+  if (error) {
+    console.error('directSearch error:', error);
+    return [];
+  }
+
+  // จัดลำดับด้วยคะแนนอย่างง่าย (ไม่ต้อง RPC)
+  return (data || []).map(u => {
+    let score = 0;
+    const fn = (u.first_name || '');
+    const ln = (u.last_name  || '');
+    rawTokens.forEach(t => {
+      if (fn === t || ln === t) score += 1000;
+      else if (fn.startsWith(t) || ln.startsWith(t)) score += 600;
+      else if (fn.includes(t) || ln.includes(t)) score += 300;
+      else {
+        const nt = normIndex(t);
+        const nf = normIndex(fn);
+        const nl = normIndex(ln);
+        if (nf === nt || nl === nt) score += 200;
+        else if (nf.includes(nt) || nl.includes(nt)) score += 100;
+      }
+    });
+    return { ...u, score };
+  }).sort((a, b) => b.score - a.score);
+}
+
+// =============================================
+// searchUsers: ค้นหาหลัก
+// ลอง RPC v4 ก่อน → fallback directSearch
 // =============================================
 export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
-  // 1. ตัดยศตำรวจ/ทหารออก
   const rankRegex = /^(พล\.ต\.อ\.|พล\.ต\.ท\.|พล\.ต\.ต\.|พ\.ต\.อ\.|พ\.ต\.ท\.|พ\.ต\.ต\.|ร\.ต\.อ\.|ร\.ต\.ท\.|ร\.ต\.ต\.|ด\.ต\.|จ\.ส\.ต\.|ส\.ต\.อ\.|ส\.ต\.ท\.|ส\.ต\.ต\.|ว่าที่|นาย|นาง|นางสาว|ผู้กอง|หมวด|สารวัตร|จ่า|หมู่|นต\.)(หญิง)?\s*/g;
   const cleanKeyword = keyword.replace(rankRegex, '').trim();
-
   if (!cleanKeyword) return { results: [], total: 0 };
 
-  // 2. แยกคำค้นหาตามช่องว่าง
   const rawTokens = cleanKeyword.split(/\s+/).filter(t => t);
   if (rawTokens.length === 0) return { results: [], total: 0 };
 
-  // 3. ตรวจสอบ Cache
   const cacheKey = `search_v4_${rawTokens.join('_')}_p${page}`;
   const cached = cacheGet(cacheKey);
-  if (cached) {
-    console.log('Cache hit:', cacheKey);
-    return cached;
-  }
+  if (cached) return cached;
 
-  // 4. เรียกใช้ RPC search_users_v4 ซึ่งจัดการทุกอย่างเรียบร้อยแล้ว
+  let data = [];
+
+  // ลอง RPC search_users_v4 (เร็วที่สุด + มี Fuzzy)
   const { data: rpcData, error: rpcError } = await supabase.rpc('search_users_v4', {
     raw_tokens: rawTokens
   });
 
-  if (rpcError) {
-    console.error('search_users_v4 error:', rpcError);
-    return { results: [], total: 0 };
+  if (!rpcError && rpcData) {
+    data = rpcData;
+    console.log('RPC v4 hit:', rawTokens, 'results:', data.length);
+  } else {
+    // Fallback: ใช้ directSearch เมื่อ RPC ยังไม่ได้ Deploy
+    console.warn('RPC v4 error, fallback to directSearch:', rpcError?.message);
+    data = await directSearch(rawTokens);
+    console.log('directSearch results:', data.length);
   }
 
-  const data = rpcData || [];
   if (data.length === 0) return { results: [], total: 0 };
 
   const totalFound     = data.length;
@@ -64,8 +121,7 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
 }
 
 // =============================================
-// suggestUsers: ค้นหา Fuzzy เพื่อแนะนำชื่อใกล้เคียง
-// เรียกจาก webhook.js เฉพาะเมื่อ total === 0
+// suggestUsers: ค้นหาชื่อใกล้เคียงเมื่อหาไม่เจอ
 // =============================================
 export async function suggestUsers(keyword) {
   const rankRegex = /^(พล\.ต\.อ\.|พล\.ต\.ท\.|พล\.ต\.ต\.|พ\.ต\.อ\.|พ\.ต\.ท\.|พ\.ต\.ต\.|ร\.ต\.อ\.|ร\.ต\.ท\.|ร\.ต\.ต\.|ด\.ต\.|จ\.ส\.ต\.|ส\.ต\.อ\.|ส\.ต\.ท\.|ส\.ต\.ต\.|ว่าที่|นาย|นาง|นางสาว|ผู้กอง|หมวด|สารวัตร|จ่า|หมู่|นต\.)(หญิง)?\s*/g;
@@ -73,24 +129,26 @@ export async function suggestUsers(keyword) {
   const rawTokens    = cleanKeyword.split(/\s+/).filter(t => t);
   if (rawTokens.length === 0) return [];
 
-  const rawTotalChars = rawTokens.join('').length;
+  // ป้องกัน Timeout: คำสั้นกว่า 4 ตัวอักษร ข้ามการ suggest
+  if (rawTokens.join('').length < 4) return [];
 
-  // ป้องกัน DB Timeout: ถ้าคำค้นหาสั้นเกินไป (น้อยกว่า 4 ตัวอักษร) ให้ข้าม Fuzzy
-  if (rawTotalChars < 4) return [];
-
-  // ใช้งาน search_users_v4 สำหรับ Suggest Users ด้วย (ไม่ต้องมี search_users_v2 อีกต่อไป)
+  // ลอง RPC v4 ก่อน
   const { data: rpcData, error: rpcError } = await supabase.rpc('search_users_v4', {
     raw_tokens: rawTokens
   });
 
-  if (rpcError || !rpcData || rpcData.length === 0) {
-    return [];
+  let pool = [];
+  if (!rpcError && rpcData && rpcData.length > 0) {
+    pool = rpcData;
+  } else {
+    pool = await directSearch(rawTokens);
   }
 
-  // คืนชื่อเต็มไม่ซ้ำ สูงสุด 5 รายการ
+  if (pool.length === 0) return [];
+
   const seen = new Set();
   const result = [];
-  for (const u of rpcData) {
+  for (const u of pool) {
     const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
     if (fullName && !seen.has(fullName)) {
       seen.add(fullName);
@@ -98,6 +156,5 @@ export async function suggestUsers(keyword) {
       if (result.length >= 5) break;
     }
   }
-
   return result;
 }
