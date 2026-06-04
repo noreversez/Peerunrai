@@ -57,7 +57,18 @@
       color: var(--text-1);
       min-height: 100vh;
       display: flex;
-      flex-direction: column;
+    }
+
+    /* ── Animations ── */
+    @keyframes float {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+      100% { transform: translateY(0); }
+    }
+    @keyframes glowPulse {
+      0% { box-shadow: 0 0 0 3px rgba(37,99,235,.12), var(--shadow-md); }
+      50% { box-shadow: 0 0 15px 4px rgba(37,99,235,.25), 0 0 0 3px rgba(37,99,235,.12), var(--shadow-md); }
+      100% { box-shadow: 0 0 0 3px rgba(37,99,235,.12), var(--shadow-md); }
     }
 
     /* ── Header ── */
@@ -322,6 +333,7 @@
       border-radius: 50%;
       box-shadow: 0 8px 32px rgba(37,99,235,.3);
       border: 3px solid var(--border);
+      animation: float 4s ease-in-out infinite;
     }
     .hero-tagline {
       font-size: 13px;
@@ -367,6 +379,7 @@
     .search-box:focus-within {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(37,99,235,.12), var(--shadow-md);
+      animation: glowPulse 2.5s infinite;
     }
     .search-icon {
       position: absolute;
