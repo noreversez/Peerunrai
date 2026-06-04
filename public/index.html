@@ -729,67 +729,8 @@
       </div>
     </div>
     <div class="modal-body">
-      <ul class="changelog-list">
-        <li class="changelog-item">
-          <div class="changelog-dot new"></div>
-          <div class="changelog-content">
-            <div class="changelog-ver">4 มิ.ย. 2569</div>
-            <div class="changelog-desc">
-              <span class="changelog-tag tag-new">ใหม่</span>
-              เพิ่มโลโก้ "พี่รุ่นไรน้อง" และเมนูแจ้งปัญหา / อัปเดท
-            </div>
-          </div>
-        </li>
-        <li class="changelog-item">
-          <div class="changelog-dot fix"></div>
-          <div class="changelog-content">
-            <div class="changelog-ver">4 มิ.ย. 2569</div>
-            <div class="changelog-desc">
-              <span class="changelog-tag tag-fix">แก้ไข</span>
-              ปรับปรุงระบบค้นหาให้ค้นหาชื่อ-สกุลสั้นๆ ได้แม่นยำขึ้น (เช่น เกปัน, บาซิล)
-            </div>
-          </div>
-        </li>
-        <li class="changelog-item">
-          <div class="changelog-dot improve"></div>
-          <div class="changelog-content">
-            <div class="changelog-ver">3 มิ.ย. 2569</div>
-            <div class="changelog-desc">
-              <span class="changelog-tag tag-improve">ปรับปรุง</span>
-              ระบบ Ranking Score ใหม่ — ผลลัพธ์ที่ตรงกว่าจะขึ้นก่อนเสมอ
-            </div>
-          </div>
-        </li>
-        <li class="changelog-item">
-          <div class="changelog-dot new"></div>
-          <div class="changelog-content">
-            <div class="changelog-ver">3 มิ.ย. 2569</div>
-            <div class="changelog-desc">
-              <span class="changelog-tag tag-new">ใหม่</span>
-              เพิ่มอนิเมชั่นหิมะตกและ Hint Tags สำหรับ "ธราธิป", "จันทวงศ์", "รุ่น 79"
-            </div>
-          </div>
-        </li>
-        <li class="changelog-item">
-          <div class="changelog-dot fix"></div>
-          <div class="changelog-content">
-            <div class="changelog-ver">2 มิ.ย. 2569</div>
-            <div class="changelog-desc">
-              <span class="changelog-tag tag-fix">แก้ไข</span>
-              แก้บัคบอทไม่ตอบกลับเมื่อค้นหาคำสั้น (Vercel Timeout)
-            </div>
-          </div>
-        </li>
-        <li class="changelog-item">
-          <div class="changelog-dot new"></div>
-          <div class="changelog-content">
-            <div class="changelog-ver">1 มิ.ย. 2569</div>
-            <div class="changelog-desc">
-              <span class="changelog-tag tag-new">ใหม่</span>
-              เปิดตัวระบบ Peerunrai — ค้นหา นรต. ผ่าน LINE Bot และเว็บไซต์
-            </div>
-          </div>
-        </li>
+      <ul class="changelog-list" id="publicChangelogList">
+        <div class="spinner"></div>
       </ul>
     </div>
   </div>
@@ -1010,7 +951,43 @@
 
   // open buttons
   document.getElementById('btnReport').addEventListener('click', () => openModal('modalReport'));
-  document.getElementById('btnChangelog').addEventListener('click', () => openModal('modalChangelog'));
+  
+  document.getElementById('btnChangelog').addEventListener('click', () => {
+    openModal('modalChangelog');
+    loadPublicChangelogs();
+  });
+
+  const CL_TAG_LABELS = { new: 'ใหม่', fix: 'แก้ไข', improve: 'ปรับปรุง' };
+
+  async function loadPublicChangelogs() {
+    const list = document.getElementById('publicChangelogList');
+    try {
+      const res = await fetch('/api/changelogs');
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      
+      const data = json.data || [];
+      if (data.length === 0) {
+        list.innerHTML = '<li class="changelog-item" style="color:var(--text-3);justify-content:center;padding:20px;">ยังไม่มีรายการอัปเดท</li>';
+        return;
+      }
+      
+      list.innerHTML = data.map(cl => `
+        <li class="changelog-item">
+          <div class="changelog-dot ${cl.type}"></div>
+          <div class="changelog-content">
+            <div class="changelog-ver">${esc(cl.version_date)}</div>
+            <div class="changelog-desc">
+              <span class="changelog-tag tag-${cl.type}">${CL_TAG_LABELS[cl.type] || 'ใหม่'}</span>
+              ${esc(cl.description)}
+            </div>
+          </div>
+        </li>
+      `).join('');
+    } catch (e) {
+      list.innerHTML = '<li class="changelog-item" style="color:var(--red);justify-content:center;padding:20px;">โหลดข้อมูลไม่สำเร็จ</li>';
+    }
+  }
 
   // ── Report form submit ──
   document.getElementById('reportForm').addEventListener('submit', e => {
