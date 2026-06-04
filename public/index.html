@@ -494,19 +494,22 @@
     .result-card:nth-child(5)  { animation-delay: .10s }
     .result-card:nth-child(n+6){ animation-delay: .12s }
 
-    .avatar {
-      width: 40px; height: 40px;
-      border-radius: 50%;
+    .gen-box {
+      width: 48px; height: 48px;
+      border-radius: 12px;
       background: var(--accent-soft);
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
-      font-weight: 700;
       color: var(--accent);
       flex-shrink: 0;
-      border: 1.5px solid var(--border);
+      border: 1px solid rgba(37,99,235,.2);
+      line-height: 1.1;
+      font-size: 10px;
     }
+    .gen-box strong { font-size: 17px; font-weight: 700; }
+    
     .card-body { flex: 1; min-width: 0; }
     .card-name {
       font-size: 15px;
@@ -527,16 +530,6 @@
       font-size: 12.5px;
       color: var(--text-3);
       margin-top: 2px;
-    }
-    .gen-badge {
-      font-size: 12px;
-      font-weight: 600;
-      padding: 3px 10px;
-      border-radius: 20px;
-      background: var(--bg-3);
-      color: var(--text-2);
-      flex-shrink: 0;
-      border: 1px solid var(--border);
     }
 
     /* ── States ── */
@@ -615,8 +608,6 @@
       .hero h1 { font-size: 24px; }
       .hero p { font-size: 14.5px; }
       #searchInput { font-size: 16px; padding-top: 14px; padding-bottom: 14px; }
-      .result-card { flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; }
-      .result-gen { width: 100%; text-align: left; margin-top: 4px; }
       .header-nav { gap: 0; }
       .nav-icon-btn { padding: 7px 6px; }
       .modal-sheet { max-height: 92vh; border-radius: 16px 16px 0 0; }
@@ -896,12 +887,11 @@
       card.className = 'result-card';
       card.style.animationDelay = `${Math.min(i * 0.025, 0.15)}s`;
       card.innerHTML = `
-        <div class="avatar">${esc(initial)}</div>
+        <div class="gen-box">รุ่น<br/><strong>${u.generation ? esc(u.generation) : '-'}</strong></div>
         <div class="card-body">
           <div class="card-name">${highlight}</div>
           <div class="card-sub">นักเรียนนายร้อยตำรวจ</div>
         </div>
-        ${u.generation ? `<span class="gen-badge">รุ่น ${esc(u.generation)}</span>` : ''}
       `;
       section.appendChild(card);
     });
