@@ -611,11 +611,17 @@
   <span class="badge">นรต.</span>
   <div class="header-spacer"></div>
   <nav class="header-nav">
-    <button class="nav-icon-btn" id="btnReport" title="แจ้ปัญหา / ขอแก้ไขชื่อ-สกุล" aria-label="แจ้ปัญหา">
+    <button class="nav-icon-btn" id="btnReport" title="แจ้งปัญหา / ขอแก้ไขชื่อ-สกุล" aria-label="แจ้งปัญหา">
       <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
         <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
       </svg>
-      <span class="nav-icon-label">แจ้ปัญหา</span>
+      <span class="nav-icon-label">แจ้งปัญหา</span>
+    </button>
+    <button class="nav-icon-btn" id="btnTos" title="ข้อตกลงการใช้งาน" aria-label="ข้อตกลง">
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      <span class="nav-icon-label">ข้อตกลง</span>
     </button>
     <button class="nav-icon-btn" id="btnChangelog" title="อัปเดทล่าสุด" aria-label="อัปเดท">
       <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
@@ -731,6 +737,38 @@
       <ul class="changelog-list" id="publicChangelogList">
         <div class="spinner"></div>
       </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: ข้อตกลงและเงื่อนไข (TOS) ── -->
+<div class="modal-overlay" id="modalTos" role="dialog" aria-modal="true" aria-label="ข้อตกลงการใช้งาน">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-header-icon" style="background:#3b82f6; color:#fff;">🛡️</div>
+      <div>
+        <div class="modal-title">ข้อตกลงและเงื่อนไข</div>
+        <div class="modal-sub">การใช้งานไลน์บอทสืบค้นข้อมูล</div>
+      </div>
+    </div>
+    <div class="modal-body" style="font-size: 13.5px; line-height: 1.6; color: var(--text-2);">
+      <p style="margin-bottom:12px;"><strong>(Terms of Service & Privacy Disclaimer)</strong></p>
+      <p style="margin-bottom:12px;">ไลน์บอทนี้จัดทำขึ้นเพื่อเป็นเครื่องมืออำนวยความสะดวกในการสืบค้นข้อมูลรุ่นจากชื่อและนามสกุล การแอดไลน์และเข้าใช้งานระบบนี้ ถือว่าผู้ใช้งานเข้าใจและยอมรับข้อตกลงทั้งหมดดังต่อไปนี้:</p>
+      
+      <ul style="padding-left:16px; margin-bottom:16px; display:flex; flex-direction:column; gap:12px;">
+        <li><strong>1. เพื่อความสะดวกรวดเร็วในการสืบค้นเท่านั้น:</strong> ระบบนี้ถูกพัฒนาขึ้นเพื่อเป็นเครื่องมือช่วยย่นระยะเวลาในการค้นหาข้อมูลให้มีประสิทธิภาพยิ่งขึ้น <strong>แทนการที่ผู้ใช้จะต้องไปไล่เปิดหน้าเว็บและสืบค้นด้วยตนเองบนเว็บไซต์ของโรงเรียน</strong> โดยระบบทำหน้าที่เพียงจับคู่คำค้นหาและแสดงผลลัพธ์ที่รวดเร็วขึ้นเท่านั้น ไม่มีการดัดแปลงเนื้อหาต้นฉบับใดๆ</li>
+        <li><strong>2. แหล่งที่มาของข้อมูลสาธารณะ:</strong> ข้อมูลทั้งหมดที่ปรากฏในระบบ เป็นข้อมูลที่รวบรวมมาจากแหล่งข้อมูลที่เปิดเผยต่อสาธารณะอยู่แล้วบนอินเทอร์เน็ต (Public Domain) เช่น ระบบการสืบค้นของ Google และเว็บไซต์อย่างเป็นทางการของทางโรงเรียน/สถาบัน ระบบนี้ไม่ได้ทำการดัดแปลง เจาะรหัส หรือเข้าถึงข้อมูลเชิงลึกที่เป็นความลับส่วนบุคคลแต่อย่างใด</li>
+        <li><strong>3. วัตถุประสงค์เพื่อการใช้งานส่วนบุคคล:</strong> ผู้ใช้งานตกลงและรับทราบว่าจะนำข้อมูลที่ได้จากไลน์บอทนี้ไปใช้ <strong>เพื่อประโยชน์ส่วนบุคคลเท่านั้น (Personal Use Only)</strong> ห้ามมิให้นำข้อมูลไปใช้ในนามองค์กร นำไปใช้เพื่อผลประโยชน์ทางการค้า หรือนำไปเผยแพร่ต่อในลักษณะที่สร้างความเดือดร้อนเสียหายแก่ผู้อื่น</li>
+        <li><strong>4. ข้อห้ามในการใช้งานและหลักศีลธรรม:</strong> ห้ามมิให้นำข้อมูลที่ได้รับจากระบบนี้ไปใช้ในการกลั่นแกล้ง (Bullying), โจมตี, ข่มขู่, สร้างความเดือดร้อนรำคาญ หรือละเมิดสิทธิความเป็นส่วนตัวของบุคคลอื่นโดยเด็ดขาด</li>
+        <li><strong>5. สิทธิ์ในการขอระงับการแสดงผล (Opt-out / Right to be Forgotten):</strong> เนื่องจากข้อมูลถูกดึงมาจากแหล่งข้อมูลสาธารณะ หากท่านพบข้อมูลของตนเองปรากฏบนระบบนี้ และมีความประสงค์ต้องการให้ระบบ <strong>"ระงับการแสดงผล" หรือลบข้อมูลออกจากฐานข้อมูลของไลน์บอท</strong> สามารถติดต่อแจ้งความประสงค์ได้ทันที</li>
+        <li><strong>6. นโยบายความเป็นส่วนตัวของผู้ใช้งาน (Privacy & Logs):</strong> ระบบนี้อาจมีการบันทึกประวัติการพิมพ์คำค้นหา (Keywords) เพื่อนำไปใช้ปรับปรุงความแม่นยำและการทำงานของระบบเท่านั้น โดยผู้พัฒนาจะไม่มีการเก็บรวบรวม หรือนำข้อมูลบัญชีไลน์และประวัติการสืบค้นของผู้ใช้งานไปเผยแพร่หรือส่งต่อให้แก่บุคคลภายนอก</li>
+        <li><strong>7. การจำกัดความรับผิดชอบ (Disclaimer):</strong> ผู้พัฒนาระบบเป็นเพียงผู้สร้างเครื่องมือช่วยสืบค้นเพื่อความสะดวกเท่านั้น จะไม่รับผิดชอบต่อความถูกต้อง ครบถ้วน ของข้อมูล (ซึ่งเป็นไปตามต้นฉบับของเว็บไซต์โรงเรียน) และจะไม่รับผิดชอบต่อความเสียหายใดๆ ทั้งทางแพ่งและทางอาญาที่เกิดจากการนำข้อมูลในระบบนี้ไปใช้ในทางที่ผิดกฎหมายหรือขัดต่อศีลธรรมโดยผู้ใช้งาน</li>
+      </ul>
+      
+      <div style="background: var(--bg-3); padding: 12px; border-radius: 8px; border-left: 4px solid var(--yellow); color: var(--text-1);">
+        <strong>⚠️ การกดส่งชื่อ-นามสกุล หรือใช้งานระบบสืบค้นผ่านไลน์บอทนี้ ถือว่าผู้ใช้งานเข้าใจและยอมรับข้อตกลงและเงื่อนไขทั้งหมดข้างต้นแล้วทุกประการ</strong>
+      </div>
     </div>
   </div>
 </div>
@@ -950,6 +988,7 @@
 
   // open buttons
   document.getElementById('btnReport').addEventListener('click', () => openModal('modalReport'));
+  document.getElementById('btnTos').addEventListener('click', () => openModal('modalTos'));
   
   document.getElementById('btnChangelog').addEventListener('click', () => {
     openModal('modalChangelog');
