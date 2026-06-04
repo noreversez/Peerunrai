@@ -171,7 +171,8 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
   });
 
   if (!rpcError && rpcData !== null) {
-    data = rpcData;
+    // นำผลลัพธ์จาก DB มาคิดคะแนนความแม่นยำชั้นสูงสุด (Exact Match) ด้วย JavaScript
+    data = buildScores(rpcData, rawTokens);
   } else {
     // 5. ถ้ายังไม่ได้สร้าง RPC (fallback) จะใช้ directSearch แทน
     data = await directSearch(rawTokens);
