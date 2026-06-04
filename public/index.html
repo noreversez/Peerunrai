@@ -606,7 +606,7 @@
 <header>
   <a class="logo" href="/">
     <img class="logo-img" src="https://img2.pic.in.th/ChatGPT-Image-4-..-2569-09_57_31.png" alt="logo" />
-    Peerun<span>rai</span>
+    พี่รุ่นไรน้อง
   </a>
   <span class="badge">นรต.</span>
   <div class="header-spacer"></div>
@@ -774,7 +774,10 @@
 </div>
 
 <footer>
-  Peerunrai · ระบบค้นหา นรต. · ข้อมูลเพื่อการใช้งานภายใน
+  <div style="margin-bottom: 6px;">พี่รุ่นไรน้อง · ระบบค้นหา นรต. · ข้อมูลเพื่อการใช้งานภายใน</div>
+  <div style="font-size: 11px; color: var(--text-3);">
+    อัพเดทล่าสุดวันนี้ · <a href="#" id="footerTos" style="color: #3b82f6; font-weight: 600; text-decoration: none;">TOS</a>
+  </div>
 </footer>
 
 <script>
@@ -989,6 +992,7 @@
   // open buttons
   document.getElementById('btnReport').addEventListener('click', () => openModal('modalReport'));
   document.getElementById('btnTos').addEventListener('click', () => openModal('modalTos'));
+  document.getElementById('footerTos').addEventListener('click', (e) => { e.preventDefault(); openModal('modalTos'); });
   
   document.getElementById('btnChangelog').addEventListener('click', () => {
     openModal('modalChangelog');
