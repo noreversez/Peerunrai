@@ -156,22 +156,9 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
 
   let data = null;
 
-  // 4. ลอง RPC search_users_v2 ก่อน (1 DB call)
-  const { data: rpcData, error: rpcError } = await supabase.rpc('search_users_v2', {
-    search_tokens: normTokens,
-    use_fuzzy:     false,
-  });
-
-  if (!rpcError && rpcData !== null) {
-    data = rpcData;
-  } else {
-    // fallback: direct query (1 DB call)
-    console.warn('search_users_v2 not found, using direct query');
-    data = await directSearch(rawTokens);
-  }
-
-  // *** ไม่มี Fuzzy Fallback ในนี้อีกต่อไป ***
-  // Fuzzy + "หรือคุณหมายถึง" จัดการที่ webhook.js แทน
+  // 4. ใช้ directSearch เป็นหลัก (1 DB call)
+  // directSearch มีข้อดีคือค้นหาทั้ง raw และ norm พร้อมกัน ทำให้เจอชื่อแน่นอน
+  data = await directSearch(rawTokens);
 
   if (!data || data.length === 0) return { results: [], total: 0 };
 
@@ -194,11 +181,12 @@ export async function suggestUsers(keyword) {
   const rawTokens    = cleanKeyword.split(/\s+/).filter(t => t);
   if (rawTokens.length === 0) return [];
 
+  const rawTotalChars = rawTokens.join('').length;
   const normTokens = rawTokens.map(t => normIndex(t));
-  const totalChars = normTokens.join('').length;
 
-  // คำสั้นเกินไปสำหรับ Fuzzy (pg_trgm ต้องการ >= 3 ตัวอักษร)
-  if (totalChars < 3) return [];
+  // ป้องกัน DB Timeout: ถ้าคำค้นหาสั้นเกินไป (น้อยกว่า 4 ตัวอักษร) ให้ข้าม Fuzzy
+  // เพราะ Fuzzy บนคำสั้นจะใช้เวลาประมวลผลนานมากและได้ผลลัพธ์ที่ไม่เกี่ยวข้องกันเยอะ
+  if (rawTotalChars < 4) return [];
 
   let suggestions = [];
 
