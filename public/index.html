@@ -679,7 +679,7 @@
       </button>
     </div>
 
-    <div class="search-hints" style="text-align: center; margin-top: 14px;">
+    <div class="search-hints" id="hints" style="text-align: center; margin-top: 14px;">
       <button class="hint-tag" id="btnA2HS" style="background: rgba(37,99,235,0.1); color: var(--accent); border: none; font-weight: 600;">
         💡 TIPS: วิธีเพิ่มแอปลงหน้าจอมือถือ
       </button>
@@ -850,14 +850,6 @@
   let totalResults  = 0;
   const PER_PAGE    = 20;
 
-  // ── Hint tags ──
-  hints.querySelectorAll('.hint-tag').forEach(tag => {
-    tag.addEventListener('click', () => {
-      input.value = tag.dataset.q;
-      input.dispatchEvent(new Event('input'));
-      input.focus();
-    });
-  });
 
   // ── Input events ──
   input.addEventListener('input', () => {
