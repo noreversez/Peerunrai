@@ -95,28 +95,34 @@ async function directSearch(rawTokens) {
   let query = supabase.from('users').select('*');
   rawTokens.forEach(t => {
     const nt = normIndex(t);
-    let orCond;
+    const isNum = !isNaN(t) && t.trim() !== '';
+    
+    // สร้างเงื่อนไขพื้นฐานสำหรับชื่อ/นามสกุล
+    let conds;
     if (nt.length < 3) {
-      // คำสั้น: ใช้ PREFIX — ค้นทั้งต้นฉบับและ normalized
-      orCond = [
+      conds = [
         `norm_first.ilike.${nt}%`,
         `norm_last.ilike.${nt}%`,
         `first_name.ilike.${t}%`,
-        `last_name.ilike.${t}%`,
-        `generation.eq.${t}`,
-      ].join(',');
+        `last_name.ilike.${t}%`
+      ];
     } else {
-      // คำยาว: ใช้ CONTAINS — ค้นทั้งต้นฉบับและ normalized
-      orCond = [
+      conds = [
         `norm_first.ilike.%${nt}%`,
         `norm_last.ilike.%${nt}%`,
-        `first_name.ilike.%${t}%`,   // ← เพิ่ม: ค้นหาชื่อต้นฉบับโดยตรง
-        `last_name.ilike.%${t}%`,    // ← เพิ่ม: ค้นหานามสกุลต้นฉบับโดยตรง
-        `generation.eq.${t}`,
-      ].join(',');
+        `first_name.ilike.%${t}%`,
+        `last_name.ilike.%${t}%`
+      ];
     }
-    query = query.or(orCond);
+    
+    // เพิ่มเงื่อนไขค้นหารุ่น (เฉพาะถ้าคำค้นหาเป็นตัวเลข ป้องกัน Type Error ถ้า DB เป็น Integer)
+    if (isNum) {
+      conds.push(`generation.eq.${t}`);
+    }
+    
+    query = query.or(conds.join(','));
   });
+  
   const { data, error } = await query.limit(300);
   if (error) {
     console.error('directSearch error:', error);

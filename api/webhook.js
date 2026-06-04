@@ -85,17 +85,7 @@ export default async function handler(req, res) {
             continue;
           }
 
-          if (isSingleShortToken) {
-            await replyWithText(replyToken,
-              `🔍 กำลังค้นหา "${keyword}"...\n\n` +
-              `💡 เคล็ดลับ: ชื่อ "${keyword}" อาจมีหลายคนครับ\n` +
-              `ลองค้นหาแบบเหล่านี้จะแม่นยำกว่า:\n` +
-              `• พิมพ์ชื่อ + นามสกุล เช่น "${keyword} สกุลจริง"\n` +
-              `• พิมพ์ชื่อ + รุ่น เช่น "${keyword} 79"\n` +
-              `• พิมพ์นามสกุลแทนชื่อ`
-            );
-          }
-
+          // แสดงแค่ Loading Animation (ห้ามใช้ replyToken ก่อนการค้นหาเสร็จสิ้น)
           if (userId) await showLoadingAnimation(userId);
 
           // ค้นหาใน Supabase
@@ -104,6 +94,11 @@ export default async function handler(req, res) {
 
           // บันทึก log แบบ async (ไม่ block การตอบกลับ)
           if (userId) logSearch(userId, keyword, total);
+
+          let hintMsg = "";
+          if (isSingleShortToken && total > 0) {
+            hintMsg = `\n\n💡 ค้นหาเยอะเกินไป? ลองพิมพ์ "ชื่อ นามสกุล" หรือ "ชื่อ รุ่น" (เช่น ${keyword} 79) เพื่อให้แม่นยำขึ้นครับ`;
+          }
 
           if (total === 0) {
             const suggestions = await suggestUsers(keyword);
