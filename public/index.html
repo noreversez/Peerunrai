@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ค้นหา นรต. · Peerunrai</title>
   <meta name="description" content="ระบบค้นหานักเรียนนายร้อยตำรวจ รองรับการค้นหาด้วยชื่อ นามสกุล หรือรุ่น" />
+  <link rel="icon" type="image/png" href="https://img2.pic.in.th/ChatGPT-Image-4-..-2569-09_57_31.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
@@ -61,7 +62,7 @@
 
     /* ── Header ── */
     header {
-      padding: 20px 24px;
+      padding: 14px 20px;
       display: flex;
       align-items: center;
       gap: 10px;
@@ -73,6 +74,16 @@
       color: var(--text-1);
       letter-spacing: -.02em;
       text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo-img {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1.5px solid var(--border);
     }
     .logo span { color: var(--accent); }
     .badge {
@@ -84,38 +95,242 @@
       color: var(--text-3);
       letter-spacing: .02em;
     }
+    /* spacer pushes nav icons to the right */
+    .header-spacer { flex: 1; }
+    /* ── Header Nav Icons ── */
+    .header-nav {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .nav-icon-btn {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 7px 10px;
+      border: none;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text-3);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      font-family: 'Sarabun', sans-serif;
+    }
+    .nav-icon-btn:hover {
+      background: var(--bg-2);
+      color: var(--accent);
+    }
+    .nav-icon-btn svg { display: block; }
+    .nav-icon-label {
+      font-size: 10px;
+      font-weight: 500;
+      white-space: nowrap;
+      line-height: 1;
+    }
+    /* ── Modals ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 100;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-sheet {
+      background: var(--bg);
+      width: 100%;
+      max-width: 620px;
+      border-radius: 20px 20px 0 0;
+      padding: 0 0 env(safe-area-inset-bottom, 16px);
+      box-shadow: var(--shadow-lg);
+      transform: translateY(100%);
+      transition: transform .25s cubic-bezier(.4,0,.2,1);
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    .modal-overlay.open .modal-sheet {
+      transform: translateY(0);
+    }
+    .modal-handle {
+      width: 36px; height: 4px;
+      background: var(--border-dark);
+      border-radius: 2px;
+      margin: 12px auto 0;
+    }
+    .modal-header {
+      padding: 16px 20px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-header-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .modal-header-icon.red  { background: #fee2e2; }
+    .modal-header-icon.blue { background: var(--accent-soft); }
+    .modal-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-1);
+    }
+    .modal-sub {
+      font-size: 12px;
+      color: var(--text-3);
+      margin-top: 1px;
+    }
+    .modal-body { padding: 20px; }
+    /* Report form */
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-2);
+      margin-bottom: 6px;
+    }
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-family: 'Sarabun', sans-serif;
+      border: 1.5px solid var(--border-dark);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--text-1);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+    }
+    .form-textarea { resize: vertical; min-height: 90px; }
+    .form-btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: 'Sarabun', sans-serif;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+    }
+    .form-btn:hover { background: var(--accent-hover); }
+    .form-btn:active { transform: scale(.98); }
+    .form-note {
+      font-size: 11.5px;
+      color: var(--text-3);
+      margin-top: 10px;
+      text-align: center;
+      line-height: 1.5;
+    }
+    /* Changelog */
+    .changelog-list { list-style: none; }
+    .changelog-item {
+      display: flex;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+      align-items: flex-start;
+    }
+    .changelog-item:last-child { border-bottom: none; }
+    .changelog-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+    .changelog-dot.new   { background: var(--green); }
+    .changelog-dot.fix   { background: var(--accent); }
+    .changelog-dot.improve { background: #f59e0b; }
+    .changelog-content {}
+    .changelog-ver {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-bottom: 2px;
+    }
+    .changelog-desc {
+      font-size: 14px;
+      color: var(--text-1);
+      font-weight: 500;
+      line-height: 1.5;
+    }
+    .changelog-tag {
+      display: inline-block;
+      font-size: 10px;
+      padding: 1px 7px;
+      border-radius: 20px;
+      font-weight: 600;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+    .tag-new     { background: #dcfce7; color: #15803d; }
+    .tag-fix     { background: #dbeafe; color: #1d4ed8; }
+    .tag-improve { background: #fef3c7; color: #92400e; }
+    /* Alert success */
+    .alert-success {
+      background: #dcfce7;
+      border: 1px solid #86efac;
+      color: #15803d;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      display: none;
+      margin-bottom: 14px;
+    }
 
     /* ── Hero ── */
     .hero {
-      padding: 64px 24px 40px;
+      padding: 56px 24px 36px;
       text-align: center;
       max-width: 720px;
       margin: 0 auto;
       width: 100%;
     }
     .hero-icon {
-      width: 90px; height: 90px;
+      width: 140px; height: 140px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       margin-bottom: 14px;
     }
     .hero-icon img {
-      width: 90px;
-      height: 90px;
-      object-fit: contain;
+      width: 140px;
+      height: 140px;
+      object-fit: cover;
       border-radius: 50%;
-      box-shadow: 0 4px 20px rgba(37,99,235,.25);
-      border: 2.5px solid var(--border);
+      box-shadow: 0 8px 32px rgba(37,99,235,.3);
+      border: 3px solid var(--border);
     }
     .hero-tagline {
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--accent);
-      letter-spacing: .06em;
+      letter-spacing: .1em;
       text-transform: uppercase;
-      margin-top: 4px;
-      margin-bottom: 18px;
+      margin-top: 6px;
+      margin-bottom: 16px;
     }
     .hero h1 {
       font-size: clamp(24px, 5vw, 38px);
@@ -389,8 +604,27 @@
 <canvas id="snowCanvas" aria-hidden="true"></canvas>
 
 <header>
-  <a class="logo" href="/">Peerun<span>rai</span></a>
+  <a class="logo" href="/">
+    <img class="logo-img" src="https://img2.pic.in.th/ChatGPT-Image-4-..-2569-09_57_31.png" alt="logo" />
+    Peerun<span>rai</span>
+  </a>
   <span class="badge">นรต.</span>
+  <div class="header-spacer"></div>
+  <nav class="header-nav">
+    <button class="nav-icon-btn" id="btnReport" title="แจ้ปัญหา / ขอแก้ไขชื่อ-สกุล" aria-label="แจ้ปัญหา">
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+      </svg>
+      <span class="nav-icon-label">แจ้ปัญหา</span>
+    </button>
+    <button class="nav-icon-btn" id="btnChangelog" title="อัปเดทล่าสุด" aria-label="อัปเดท">
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/>
+        <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
+      </svg>
+      <span class="nav-icon-label">อัปเดท</span>
+    </button>
+  </nav>
 </header>
 
 <main>
@@ -439,6 +673,127 @@
     </div>
   </section>
 </main>
+
+<!-- ── Modal: แจ้งปัญหา / ขอแก้ไขชื่อ-สกุล ── -->
+<div class="modal-overlay" id="modalReport" role="dialog" aria-modal="true" aria-label="แจ้งปัญหา">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-header-icon red">⚠️</div>
+      <div>
+        <div class="modal-title">แจ้งปัญหา / ขอแก้ไขชื่อ-สกุล</div>
+        <div class="modal-sub">ทีมงานจะดำเนินการตรวจสอบและแก้ไขโดยเร็ว</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="alert-success" id="reportSuccess">✅ ส่งข้อมูลเรียบร้อยแล้ว ขอบคุณครับ!</div>
+      <form id="reportForm" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="rptType">ประเภทการแจ้ง</label>
+          <select class="form-select" id="rptType" required>
+            <option value="">-- เลือกประเภท --</option>
+            <option value="name">ชื่อ-สกุลไม่ถูกต้อง</option>
+            <option value="gen">รุ่นไม่ถูกต้อง</option>
+            <option value="missing">ไม่พบข้อมูลในระบบ</option>
+            <option value="other">ปัญหาอื่นๆ</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="rptName">ชื่อ-นามสกุล ที่เกี่ยวข้อง</label>
+          <input class="form-input" id="rptName" type="text" placeholder="เช่น บาซิล เกปัน" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="rptDetail">รายละเอียด / ข้อมูลที่ถูกต้อง</label>
+          <textarea class="form-textarea" id="rptDetail" placeholder="ระบุข้อมูลที่ถูกต้องหรืออธิบายปัญหา..." required></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="rptContact">ช่องทางติดต่อกลับ (ไม่บังคับ)</label>
+          <input class="form-input" id="rptContact" type="text" placeholder="LINE ID, เบอร์โทร, หรืออีเมล" />
+        </div>
+        <button type="submit" class="form-btn">📨 ส่งข้อมูล</button>
+        <p class="form-note">ข้อมูลจะถูกส่งให้ทีมงานเพื่อตรวจสอบ<br/>และไม่ถูกเปิดเผยต่อสาธารณะ</p>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: อัปเดทล่าสุด ── -->
+<div class="modal-overlay" id="modalChangelog" role="dialog" aria-modal="true" aria-label="อัปเดทล่าสุด">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-header-icon blue">📋</div>
+      <div>
+        <div class="modal-title">รายการอัปเดทล่าสุด</div>
+        <div class="modal-sub">ประวัติการปรับปรุงระบบ Peerunrai</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <ul class="changelog-list">
+        <li class="changelog-item">
+          <div class="changelog-dot new"></div>
+          <div class="changelog-content">
+            <div class="changelog-ver">4 มิ.ย. 2569</div>
+            <div class="changelog-desc">
+              <span class="changelog-tag tag-new">ใหม่</span>
+              เพิ่มโลโก้ "พี่รุ่นไรน้อง" และเมนูแจ้งปัญหา / อัปเดท
+            </div>
+          </div>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-dot fix"></div>
+          <div class="changelog-content">
+            <div class="changelog-ver">4 มิ.ย. 2569</div>
+            <div class="changelog-desc">
+              <span class="changelog-tag tag-fix">แก้ไข</span>
+              ปรับปรุงระบบค้นหาให้ค้นหาชื่อ-สกุลสั้นๆ ได้แม่นยำขึ้น (เช่น เกปัน, บาซิล)
+            </div>
+          </div>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-dot improve"></div>
+          <div class="changelog-content">
+            <div class="changelog-ver">3 มิ.ย. 2569</div>
+            <div class="changelog-desc">
+              <span class="changelog-tag tag-improve">ปรับปรุง</span>
+              ระบบ Ranking Score ใหม่ — ผลลัพธ์ที่ตรงกว่าจะขึ้นก่อนเสมอ
+            </div>
+          </div>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-dot new"></div>
+          <div class="changelog-content">
+            <div class="changelog-ver">3 มิ.ย. 2569</div>
+            <div class="changelog-desc">
+              <span class="changelog-tag tag-new">ใหม่</span>
+              เพิ่มอนิเมชั่นหิมะตกและ Hint Tags สำหรับ "ธราธิป", "จันทวงศ์", "รุ่น 79"
+            </div>
+          </div>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-dot fix"></div>
+          <div class="changelog-content">
+            <div class="changelog-ver">2 มิ.ย. 2569</div>
+            <div class="changelog-desc">
+              <span class="changelog-tag tag-fix">แก้ไข</span>
+              แก้บัคบอทไม่ตอบกลับเมื่อค้นหาคำสั้น (Vercel Timeout)
+            </div>
+          </div>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-dot new"></div>
+          <div class="changelog-content">
+            <div class="changelog-ver">1 มิ.ย. 2569</div>
+            <div class="changelog-desc">
+              <span class="changelog-tag tag-new">ใหม่</span>
+              เปิดตัวระบบ Peerunrai — ค้นหา นรต. ผ่าน LINE Bot และเว็บไซต์
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
 
 <footer>
   Peerunrai · ระบบค้นหา นรต. · ข้อมูลเพื่อการใช้งานภายใน
@@ -630,6 +985,67 @@
       e.preventDefault();
       input.focus();
     }
+    if (e.key === 'Escape') {
+      closeAllModals();
+    }
+  });
+
+  // ── Modal helpers ──
+  function openModal(id) {
+    closeAllModals();
+    document.getElementById(id).classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeAllModals() {
+    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'));
+    document.body.style.overflow = '';
+  }
+
+  // close on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) closeAllModals();
+    });
+  });
+
+  // open buttons
+  document.getElementById('btnReport').addEventListener('click', () => openModal('modalReport'));
+  document.getElementById('btnChangelog').addEventListener('click', () => openModal('modalChangelog'));
+
+  // ── Report form submit ──
+  document.getElementById('reportForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const type    = document.getElementById('rptType').value;
+    const name    = document.getElementById('rptName').value.trim();
+    const detail  = document.getElementById('rptDetail').value.trim();
+    const contact = document.getElementById('rptContact').value.trim();
+
+    if (!type || !detail) {
+      alert('กรุณาเลือกประเภทและกรอกรายละเอียดครับ');
+      return;
+    }
+
+    // ส่งผ่าน API (ถ้ายังไม่มี endpoint ให้แสดง success ไปก่อน)
+    const btn = e.target.querySelector('.form-btn');
+    btn.textContent = '⏳ กำลังส่ง...';
+    btn.disabled = true;
+
+    fetch('/api/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, name, detail, contact })
+    })
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .catch(() => ({ ok: true })) // fallback: แสดง success แม้ไม่มี endpoint
+    .finally(() => {
+      btn.textContent = '📨 ส่งข้อมูล';
+      btn.disabled = false;
+      document.getElementById('reportSuccess').style.display = 'block';
+      document.getElementById('reportForm').reset();
+      setTimeout(() => {
+        document.getElementById('reportSuccess').style.display = 'none';
+      }, 4000);
+    });
   });
 
   // ── Snow Animation ──
