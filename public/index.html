@@ -679,9 +679,10 @@
       </button>
     </div>
 
-    <div class="search-hints" id="hints">
-      <span class="hint-tag" data-q="ธราธิป">ธราธิป</span>
-      <span class="hint-tag" data-q="จันทวงศ์">จันทวงศ์</span>
+    <div class="search-hints" style="text-align: center; margin-top: 14px;">
+      <button class="hint-tag" id="btnA2HS" style="background: rgba(37,99,235,0.1); color: var(--accent); border: none; font-weight: 600;">
+        💡 TIPS: วิธีเพิ่มแอปลงหน้าจอมือถือ
+      </button>
     </div>
   </div>
 
@@ -784,6 +785,43 @@
       <div style="background: var(--bg-3); padding: 12px; border-radius: 8px; border-left: 4px solid var(--yellow); color: var(--text-1);">
         <strong>⚠️ การกดส่งชื่อ-นามสกุล หรือใช้งานระบบสืบค้นผ่านไลน์บอทนี้ ถือว่าผู้ใช้งานเข้าใจและยอมรับข้อตกลงและเงื่อนไขทั้งหมดข้างต้นแล้วทุกประการ</strong>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Add to Home Screen (TIPS) ── -->
+<div class="modal-overlay" id="modalA2HS" role="dialog" aria-modal="true" aria-label="วิธีเพิ่มแอปลงหน้าจอมือถือ">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-header-icon" style="background:#f59e0b; color:#fff;">💡</div>
+      <div>
+        <div class="modal-title">TIPS: วิธีเพิ่มเว็บเป็นแอป</div>
+        <div class="modal-sub">เพิ่มลงหน้าจอโฮมเพื่อใช้งานได้ง่ายขึ้น</div>
+      </div>
+    </div>
+    <div class="modal-body" style="font-size: 14px; line-height: 1.6; color: var(--text-2);">
+      
+      <div style="background: var(--bg-3); padding: 12px; border-radius: 8px; margin-bottom: 16px; border-left: 4px solid var(--accent);">
+        <strong>🚨 หากคุณเปิดลิงก์นี้จากแอป LINE:</strong><br/>
+        1. ให้กดปุ่ม <strong>⋮</strong> (จุด 3 จุด) ที่มุมขวาบนของจอ<br/>
+        2. เลือก <strong>"เปิดด้วยเบราว์เซอร์เริ่มต้น"</strong> (Open in default browser) ก่อนทำขั้นตอนด้านล่าง
+      </div>
+
+      <p style="margin-bottom:8px; font-weight:600; color:var(--text-1);">🍎 สำหรับ iPhone / iPad (Safari):</p>
+      <ul style="padding-left:16px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
+        <li>กดปุ่ม <strong>แชร์</strong> (สี่เหลี่ยมมีลูกศรชี้ขึ้นตรงกลางด้านล่าง)</li>
+        <li>เลื่อนลงมาแล้วกด <strong>"เพิ่มไปยังหน้าจอโฮม"</strong> (Add to Home Screen)</li>
+        <li>กด <strong>"เพิ่ม"</strong> (Add) ที่มุมขวาบน</li>
+      </ul>
+
+      <p style="margin-bottom:8px; font-weight:600; color:var(--text-1);">🤖 สำหรับ Android (Chrome):</p>
+      <ul style="padding-left:16px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
+        <li>กดปุ่ม <strong>⋮</strong> (จุด 3 จุด) ที่มุมขวาบนของเบราว์เซอร์</li>
+        <li>เลือก <strong>"เพิ่มลงในหน้าจอหลัก"</strong> (Add to Home screen)</li>
+        <li>กด <strong>"เพิ่ม"</strong> (Add) เพื่อยืนยัน</li>
+      </ul>
+
     </div>
   </div>
 </div>
@@ -1011,6 +1049,7 @@
   // open buttons
   document.getElementById('btnReport').addEventListener('click', () => openModal('modalReport'));
   document.getElementById('btnTos').addEventListener('click', () => openModal('modalTos'));
+  document.getElementById('btnA2HS').addEventListener('click', () => openModal('modalA2HS'));
   document.getElementById('footerTos').addEventListener('click', (e) => { e.preventDefault(); openModal('modalTos'); });
   
   document.getElementById('btnChangelog').addEventListener('click', () => {
