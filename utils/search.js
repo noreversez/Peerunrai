@@ -97,21 +97,24 @@ async function directSearch(rawTokens) {
     const nt = normIndex(t);
     const isNum = !isNaN(t) && t.trim() !== '';
     
-    // สร้างเงื่อนไขพื้นฐานสำหรับชื่อ/นามสกุล
+    // สร้างคำค้นหาแบบเก่า (ลบแค่สระ ไม่แปลอักษร) เพื่อรองรับ DB ที่ยังไม่อัปเดต
+    const tOld = t.replace(/[่้๊๋็์ิีึืุูเแโใไัาอ]/g, '');
+
+    // สร้างเงื่อนไขเฉพาะ norm_first / norm_last ที่มี Index (หลีกเลี่ยง Full Table Scan)
     let conds;
     if (nt.length < 3) {
       conds = [
         `norm_first.ilike.${nt}%`,
         `norm_last.ilike.${nt}%`,
-        `first_name.ilike.${t}%`,
-        `last_name.ilike.${t}%`
+        `norm_first.ilike.${tOld}%`,
+        `norm_last.ilike.${tOld}%`
       ];
     } else {
       conds = [
         `norm_first.ilike.%${nt}%`,
         `norm_last.ilike.%${nt}%`,
-        `first_name.ilike.%${t}%`,
-        `last_name.ilike.%${t}%`
+        `norm_first.ilike.%${tOld}%`,
+        `norm_last.ilike.%${tOld}%`
       ];
     }
     
