@@ -18,7 +18,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+      -webkit-tap-highlight-color: transparent;
+    }
 
     :root {
       --bg:          #ffffff;
@@ -165,6 +170,9 @@
       background: var(--bg-2);
       color: var(--accent);
     }
+    .nav-icon-btn:active {
+      transform: scale(0.92);
+    }
     .nav-icon-btn svg { display: block; }
     .nav-icon-label {
       font-size: 10px;
@@ -190,6 +198,7 @@
     .modal-overlay.open {
       opacity: 1;
       pointer-events: auto;
+      touch-action: none;
     }
     .modal-sheet {
       background: rgba(var(--bg-rgb), 0.85);
@@ -205,6 +214,7 @@
       transition: transform .25s cubic-bezier(.4,0,.2,1);
       max-height: 85vh;
       overflow-y: auto;
+      overscroll-behavior-y: none;
     }
     .modal-overlay.open .modal-sheet {
       transform: translateY(0);
@@ -531,12 +541,15 @@
       -webkit-backdrop-filter: blur(10px);
       box-shadow: 0 4px 12px rgba(0,0,0,0.02);
       transition: transform .2s, box-shadow .2s, border-color .2s;
-      animation: slideIn .4s cubic-bezier(.4,0,.2,1) both;
+      animation: fadeUp .4s cubic-bezier(.4,0,.2,1) both;
     }
     .result-card:hover {
       transform: translateY(-2px);
       box-shadow: 0 8px 24px rgba(0,0,0,0.06);
       border-color: rgba(37,99,235,0.3);
+    }
+    .result-card:active {
+      transform: scale(0.98);
     }
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(6px); }
@@ -594,9 +607,45 @@
       padding: 60px 24px;
       color: var(--text-3);
     }
-    .state-box .state-icon { font-size: 40px; margin-bottom: 12px; }
+    .state-box .state-icon { margin-bottom: 12px; }
     .state-box p { font-size: 15px; line-height: 1.6; }
     .state-box strong { color: var(--text-2); }
+
+    /* ── Skeleton Loading ── */
+    .skeleton-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(128, 128, 128, 0.05);
+      background: linear-gradient(90deg, rgba(128,128,128,0.03) 25%, rgba(128,128,128,0.08) 50%, rgba(128,128,128,0.03) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite linear;
+      margin-bottom: 8px;
+    }
+    .skel-body { flex: 1; }
+    .skel-text-1 {
+      height: 15px; width: 140px;
+      border-radius: 4px;
+      background: rgba(128, 128, 128, 0.08);
+      margin-bottom: 8px;
+    }
+    .skel-text-2 {
+      height: 12px; width: 90px;
+      border-radius: 4px;
+      background: rgba(128, 128, 128, 0.05);
+    }
+    .skel-gen {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      background: rgba(128, 128, 128, 0.08);
+      flex-shrink: 0;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
 
     /* ── Spinner ── */
     .spinner {
@@ -942,6 +991,7 @@
   });
 
   clearBtn.addEventListener('click', () => {
+    haptic();
     input.value = '';
     clearBtn.classList.remove('visible');
     hints.style.display = 'flex';
@@ -1064,8 +1114,26 @@
   }
 
   // ── States ──
+  function haptic() {
+    if (navigator.vibrate) {
+      try { navigator.vibrate(40); } catch(e){}
+    }
+  }
+
   function showLoading() {
-    section.innerHTML = '<div class="spinner"></div>';
+    let skelHTML = '';
+    for(let i=0; i<4; i++) {
+      skelHTML += `
+        <div class="skeleton-card" style="animation-delay: ${i*0.1}s">
+          <div class="skel-body">
+            <div class="skel-text-1"></div>
+            <div class="skel-text-2"></div>
+          </div>
+          <div class="skel-gen"></div>
+        </div>
+      `;
+    }
+    section.innerHTML = skelHTML;
   }
   function showEmpty() {
     section.innerHTML = `
@@ -1119,10 +1187,14 @@
   });
 
   // open buttons
-  document.getElementById('btnReport').addEventListener('click', () => openModal('modalReport'));
-  document.getElementById('btnHowTo').addEventListener('click', () => openModal('modalHowTo'));
-  document.getElementById('btnTos').addEventListener('click', () => openModal('modalTos'));
-  document.getElementById('btnA2HS').addEventListener('click', () => openModal('modalA2HS'));
+  function handleOpen(id) {
+    haptic();
+    openModal(id);
+  }
+  document.getElementById('btnReport').addEventListener('click', () => handleOpen('modalReport'));
+  document.getElementById('btnHowTo').addEventListener('click', () => handleOpen('modalHowTo'));
+  document.getElementById('btnTos').addEventListener('click', () => handleOpen('modalTos'));
+  document.getElementById('btnA2HS').addEventListener('click', () => handleOpen('modalA2HS'));
   document.getElementById('footerTos').addEventListener('click', (e) => { e.preventDefault(); openModal('modalTos'); });
   
   document.getElementById('btnChangelog').addEventListener('click', () => {
