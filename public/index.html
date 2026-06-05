@@ -1171,16 +1171,12 @@
        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
        (e.ctrlKey && (e.key === 'U' || e.key === 'u'))) {
       e.preventDefault();
-      alert('แหมมมม จะแอบส่องโค้ดหรอครับ! 🤪 ไม่ให้ดูหรอกแบร่ๆ 👻');
       return false;
     }
   });
 
   // Disable Right Click
-  document.addEventListener('contextmenu', e => {
-    e.preventDefault();
-    alert('คลิกขวาทำไมเอ่ยยยยย? อยากก๊อปข้อมูลหรอ 🧐');
-  });
+  document.addEventListener('contextmenu', e => e.preventDefault());
 
   // ── Modal helpers ──
   function openModal(id) {
