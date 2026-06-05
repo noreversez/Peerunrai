@@ -22,6 +22,7 @@
 
     :root {
       --bg:          #ffffff;
+      --bg-rgb:      255, 255, 255;
       --bg-2:        #f7f7f5;
       --bg-3:        #efefed;
       --border:      #e3e2e0;
@@ -43,6 +44,7 @@
     @media (prefers-color-scheme: dark) {
       :root {
         --bg:          #191919;
+        --bg-rgb:      25, 25, 25;
         --bg-2:        #202020;
         --bg-3:        #2a2a2a;
         --border:      #333333;
@@ -66,7 +68,22 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      position: relative;
+      overflow-x: hidden;
     }
+    
+    /* ── Glow Background ── */
+    body::before {
+      content: '';
+      position: absolute;
+      top: -150px; left: 50%;
+      transform: translateX(-50%);
+      width: 700px; height: 500px;
+      background: radial-gradient(circle, rgba(37,99,235,0.12) 0%, rgba(37,99,235,0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    header, main, footer { position: relative; z-index: 1; }
 
     /* ── Animations ── */
     @keyframes float {
@@ -86,7 +103,13 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+      background: rgba(var(--bg-rgb), 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
     }
     .logo {
       font-size: 15px;
@@ -169,7 +192,10 @@
       pointer-events: auto;
     }
     .modal-sheet {
-      background: var(--bg);
+      background: rgba(var(--bg-rgb), 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(128, 128, 128, 0.15);
       width: 100%;
       max-width: 580px;
       border-radius: 24px 24px 0 0;
@@ -397,8 +423,10 @@
       position: relative;
       display: flex;
       align-items: center;
-      background: var(--bg);
-      border: 1.5px solid var(--border-dark);
+      background: rgba(var(--bg-rgb), 0.6);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(128, 128, 128, 0.2);
       border-radius: 14px;
       box-shadow: var(--shadow-md);
       transition: border-color .15s, box-shadow .15s;
@@ -497,17 +525,18 @@
       gap: 14px;
       padding: 14px 18px;
       border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: var(--bg);
-      margin-bottom: 8px;
-      transition: background .12s, border-color .12s, box-shadow .12s;
-      cursor: default;
-      animation: fadeUp .2s ease both;
+      border: 1px solid rgba(128, 128, 128, 0.15);
+      background: rgba(var(--bg-rgb), 0.6);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+      transition: transform .2s, box-shadow .2s, border-color .2s;
+      animation: slideIn .4s cubic-bezier(.4,0,.2,1) both;
     }
     .result-card:hover {
-      background: var(--bg-2);
-      border-color: var(--border-dark);
-      box-shadow: var(--shadow-sm);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+      border-color: rgba(37,99,235,0.3);
     }
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(6px); }
