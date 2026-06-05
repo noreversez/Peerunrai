@@ -492,7 +492,6 @@
     <button class="logout-btn" id="logoutBtn">ออกจากระบบ</button>
   </header>
 
-  <!-- Tabs -->
   <div class="tab-nav">
     <button class="tab-btn active" data-tab="reports">
       ⚠️ รายการแจ้งปัญหา
@@ -501,6 +500,9 @@
     <button class="tab-btn" data-tab="changelog">
       📋 รายการอัปเดท
       <span class="tab-count" id="changelogCount">0</span>
+    </button>
+    <button class="tab-btn" data-tab="pageviews">
+      📊 สถิติผู้เข้าชม
     </button>
   </div>
 
@@ -564,6 +566,31 @@
       <div id="changelogList"><div class="spinner"></div></div>
     </div>
 
+    <!-- ── Panel: Pageviews ── -->
+    <div class="tab-panel" id="panel-pageviews">
+      <div class="section-head">
+        <div>
+          <div class="section-title">สถิติผู้เข้าชมเว็บไซต์</div>
+          <div class="section-sub">ข้อมูลย้อนหลัง (สูงสุด 30 วัน)</div>
+        </div>
+        <button class="add-btn" id="refreshPageviews" style="font-size:13px;padding:8px 14px;">🔄 รีเฟรช</button>
+      </div>
+
+      <div style="background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;">
+        <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 14px;">
+          <thead style="background:var(--bg-3); border-bottom:1px solid var(--border);">
+            <tr>
+              <th style="padding: 14px 16px; font-weight: 600; color:var(--text-2);">วันที่ (YYYY-MM-DD)</th>
+              <th style="padding: 14px 16px; font-weight: 600; color:var(--text-2);">จำนวนผู้เข้าชม (Views)</th>
+            </tr>
+          </thead>
+          <tbody id="pageviewList">
+            <tr><td colspan="2" style="text-align:center; padding: 20px;"><div class="spinner" style="margin:0 auto;"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -592,6 +619,7 @@
     document.getElementById('dashboard').style.display = 'block';
     loadReports();
     loadChangelogs();
+    loadPageviews();
   }
 
   // Auto-login if session exists
@@ -811,10 +839,36 @@
       body: JSON.stringify({ id })
     });
     if (r.ok) {
-      document.getElementById('cl-' + id)?.remove();
-      showToast('🗑 ลบรายการเรียบร้อยแล้ว');
+      const cl = document.getElementById('cl-' + id);
+      if (cl) cl.remove();
+      const countEl = document.getElementById('changelogCount');
+      countEl.textContent = Math.max(0, parseInt(countEl.textContent) - 1);
     } else {
-      showToast('❌ เกิดข้อผิดพลาด');
+      showToast('❌ ลบรายการไม่สำเร็จ');
+    }
+  }
+
+  // ── Pageviews ──
+  document.getElementById('refreshPageviews').addEventListener('click', loadPageviews);
+
+  async function loadPageviews() {
+    const list = document.getElementById('pageviewList');
+    list.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 20px;"><div class="spinner" style="margin:0 auto;"></div></td></tr>';
+    try {
+      const r = await apiFetch('/api/admin?action=pageviews');
+      const { data } = await r.json();
+      if (!data || data.length === 0) {
+        list.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 20px; color:var(--text-3)">ยังไม่มีข้อมูลสถิติ</td></tr>';
+        return;
+      }
+      list.innerHTML = data.map(pv => `
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding: 14px 16px; color:var(--text-1);">${esc(pv.date)}</td>
+          <td style="padding: 14px 16px; color:var(--accent); font-weight:700;">${Number(pv.views).toLocaleString('th')}</td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      list.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 20px; color:var(--red)">โหลดข้อมูลไม่สำเร็จ</td></tr>';
     }
   }
 

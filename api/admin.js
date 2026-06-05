@@ -30,6 +30,17 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  // ── GET: ดึงสถิติผู้เข้าชม ──
+  if (req.method === 'GET' && action === 'pageviews') {
+    const { data, error } = await supabase
+      .from('pageviews')
+      .select('*')
+      .order('date', { ascending: false })
+      .limit(30);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ data });
+  }
+
   // ── GET: ดึงรายการแจ้งปัญหา ──
   if (req.method === 'GET' && action === 'reports') {
     const { data, error } = await supabase

@@ -960,6 +960,9 @@
 
 <footer>
   <div style="margin-bottom: 6px;">พี่รุ่นไรน้อง · ระบบค้นหา นรต.</div>
+  <div style="font-size: 11px; color: var(--text-3); margin-bottom: 4px;">
+    👁️ ผู้เข้าชมวันนี้: <strong id="pvToday" style="color:var(--text-2)">-</strong> | รวมทั้งหมด: <strong id="pvTotal" style="color:var(--text-2)">-</strong>
+  </div>
   <div style="font-size: 11px; color: var(--text-3);">
     <span id="liveUpdateTime">อัปเดตล่าสุด วันที่ 4 มิถุนายน 2569 เวลา 12.30 น. Version 2.0</span> · <a href="#" id="footerTos" style="color: #3b82f6; font-weight: 600; text-decoration: none;">TOS</a>
   </div>
@@ -1342,6 +1345,15 @@
     openModal('modalHowTo');
   }
   
+  // ── Record Pageview ──
+  fetch('/api/pageview', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('pvToday').textContent = data.today.toLocaleString('th');
+      document.getElementById('pvTotal').textContent = data.total.toLocaleString('th');
+    })
+    .catch(console.error);
+
   // Initialize Lucide icons
   lucide.createIcons();
 </script>
