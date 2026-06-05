@@ -1084,6 +1084,7 @@
 
   // open buttons
   document.getElementById('btnReport').addEventListener('click', () => openModal('modalReport'));
+  document.getElementById('btnHowTo').addEventListener('click', () => openModal('modalHowTo'));
   document.getElementById('btnTos').addEventListener('click', () => openModal('modalTos'));
   document.getElementById('btnA2HS').addEventListener('click', () => openModal('modalA2HS'));
   document.getElementById('footerTos').addEventListener('click', (e) => { e.preventDefault(); openModal('modalTos'); });
@@ -1214,6 +1215,14 @@
     }
     requestAnimationFrame(loop);
   })();
+  // URL parameter routing for direct links (auto-open modals)
+  const params = new URLSearchParams(window.location.search);
+  const modalToOpen = params.get('modal');
+  if (modalToOpen === 'tos') {
+    openModal('modalTos');
+  } else if (modalToOpen === 'howto') {
+    openModal('modalHowTo');
+  }
 </script>
 </body>
 </html>
