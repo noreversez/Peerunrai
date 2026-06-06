@@ -1,6 +1,21 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
+<script>
+  const MAINTENANCE_MODE = true;
+  if (MAINTENANCE_MODE) {
+    document.write(`
+      <div style="display:flex; height:100vh; width:100vw; align-items:center; justify-content:center; text-align:center; padding:24px; font-family:sans-serif; background:#0f1117; color:#f0f0ee; position:fixed; top:0; left:0; z-index:99999;">
+        <div style="background:#1a1d27; border:1px solid #2e3248; border-radius:20px; padding:40px 30px; box-shadow:0 4px 20px rgba(0,0,0,0.4); max-width:400px; width:100%;">
+          <div style="font-size:48px; margin-bottom:16px;">🛠️</div>
+          <h2 style="margin-bottom:12px; font-weight:700; font-size:22px;">ปิดปรับปรุงชั่วคราว</h2>
+          <p style="color:#9ea3b8; line-height:1.6; font-size:15px;">เนื่องจากมีพี่ๆน้องๆเฮียๆเข้ามาใช้งานกันเยอะ<br/>อยู่ในการพัฒนาระบบชั่วคราว จะกลับมาเร็วๆนี้ครับ</p>
+        </div>
+      </div>
+    `);
+    window.stop();
+  }
+</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>ค้นหา นรต. · พี่รุ่นไรน้อง</title>
@@ -721,21 +736,6 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
-<script>
-  const MAINTENANCE_MODE = true;
-  if (MAINTENANCE_MODE) {
-    document.write(`
-      <div style="display:flex; height:100vh; width:100vw; align-items:center; justify-content:center; text-align:center; padding:24px; font-family:'Sarabun',sans-serif; background:#0f1117; color:#f0f0ee; position:fixed; top:0; left:0; z-index:99999;">
-        <div style="background:#1a1d27; border:1px solid #2e3248; border-radius:20px; padding:40px 30px; box-shadow:0 4px 20px rgba(0,0,0,0.4); max-width:400px; width:100%;">
-          <div style="font-size:48px; margin-bottom:16px;">🛠️</div>
-          <h2 style="margin-bottom:12px; font-weight:700; font-size:22px;">ปิดปรับปรุงชั่วคราว</h2>
-          <p style="color:#9ea3b8; line-height:1.6; font-size:15px;">เนื่องจากมีพี่ๆน้องๆเฮียๆเข้ามาใช้งานกันเยอะ<br/>อยู่ในการพัฒนาระบบชั่วคราว จะกลับมาเร็วๆนี้ครับ</p>
-        </div>
-      </div>
-    `);
-    window.stop();
-  }
-</script>
 <canvas id="snowCanvas" aria-hidden="true"></canvas>
 
 <header>
