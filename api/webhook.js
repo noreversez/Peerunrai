@@ -22,7 +22,7 @@ export default async function handler(req, res) {
 
       // 1. จัดการข้อความ (Text Message)
       if (event.type === 'message' && event.message.type === 'text') {
-        const MAINTENANCE_MODE = false;
+        const MAINTENANCE_MODE = true;
         if (MAINTENANCE_MODE) {
           await replyWithText(replyToken, "🛠️ แจ้งปิดปรับปรุงชั่วคราว\n\nเนื่องจากมีพี่ๆน้องๆเฮียๆเข้ามาใช้งานกันเยอะ อยู่ในการพัฒนาระบบชั่วคราวจะกลับมาเร็วๆนี้ครับ");
           continue;
