@@ -193,7 +193,7 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
         "contents": [
           {
             "type": "text",
-            "text": "โรตี79",
+            "text": "RPCA79",
             "color": "#4A607A",
             "size": "xs",
             "align": "center"
