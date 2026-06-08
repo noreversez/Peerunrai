@@ -76,7 +76,7 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
             "margin": "md",
             "weight": "bold",
             "color": isExactMatch ? "#0F4C81" : "#333333",
-            "size": "sm"
+            "size": "md"
           },
           {
             "type": "box",
@@ -158,7 +158,7 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
                   {
                     "type": "text",
                     "text": `พบทั้งหมด ${totalFound} รายการ`,
-                    "color": "#5A6E85",
+                    "color": "#16A34A",
                     "size": "xs",
                     "align": "center",
                     "gravity": "center"
