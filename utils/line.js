@@ -49,48 +49,158 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
 
   for (let i = 0; i < bubbleCount; i++) {
     const chunk = results.slice(i * itemsPerBubble, (i + 1) * itemsPerBubble);
-    const listContents = chunk.flatMap((user, index) => {
-      const itemNumber = ((page - 1) * itemsPerPage) + (i * itemsPerBubble) + index + 1;
+    
+    const userBoxes = chunk.map((user) => {
       const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
       const nameNoSpace = fullName.replace(/\s+/g, "").toLowerCase();
       const isExactMatch = nameNoSpace.includes(mainSearchTerm) && mainSearchTerm.length > 1;
 
-      const itemBox = {
-        "type": "text",
-        "text": `${itemNumber}. ${fullName} รุ่น ${user.generation}`,
-        "size": isExactMatch ? "md" : "sm",
-        "weight": isExactMatch ? "bold" : "regular",
-        "color": isExactMatch ? "#2e7d32" : "#333333",
-        "wrap": true,
-        "align": "center"
+      return {
+        "type": "box",
+        "layout": "horizontal",
+        "backgroundColor": "#FFFFFF",
+        "cornerRadius": "md",
+        "paddingAll": "md",
+        "alignItems": "center",
+        "contents": [
+          {
+            "type": "image",
+            "url": "https://cdn-icons-png.flaticon.com/512/1144/1144760.png",
+            "size": "16px",
+            "aspectRatio": "1:1",
+            "flex": 0
+          },
+          {
+            "type": "text",
+            "text": fullName,
+            "margin": "md",
+            "weight": "bold",
+            "color": isExactMatch ? "#0F4C81" : "#333333",
+            "size": "sm"
+          },
+          {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+              {
+                "type": "text",
+                "text": `รุ่น ${user.generation || '-'}`,
+                "color": "#FFFFFF",
+                "size": "xs",
+                "align": "center",
+                "weight": "bold"
+              }
+            ],
+            "backgroundColor": "#FF7A00",
+            "cornerRadius": "xl",
+            "paddingTop": "xs",
+            "paddingBottom": "xs",
+            "width": "60px",
+            "flex": 0
+          }
+        ]
       };
-
-      if (index < chunk.length - 1) {
-        return [itemBox, { "type": "separator", "margin": "md", "color": "#e0e0e0" }];
-      }
-      return [itemBox];
     });
 
     bubbles.push({
       "type": "bubble",
-      "size": (totalFound <= 5 && page === 1) ? "giga" : "mega",
+      "size": "mega",
       "header": {
-        "type": "box", "layout": "baseline", "spacing": "sm",
+        "type": "box",
+        "layout": "vertical",
         "contents": [
-          { "type": "icon", "url": "https://img.icons8.com/material-rounded/48/ffffff/search.png", "size": "sm" },
-          { "type": "text", "text": `ผลการค้นหา (${i + 1}/${bubbleCount})`, "color": "#ffffff", "weight": "bold", "size": "sm" }
+          {
+            "type": "image",
+            "url": "https://img1.pic.in.th/images/ChatGPT-Image-8-..-2569-13_52_39.png",
+            "size": "full",
+            "aspectMode": "cover",
+            "aspectRatio": "21:9"
+          }
         ],
-        "backgroundColor": "#1a365d", "paddingAll": "12px", "justifyContent": "center"
+        "paddingAll": "none"
       },
       "body": {
-        "type": "box", "layout": "vertical", "spacing": "md",
-        "contents": listContents,
-        "paddingAll": "15px"
+        "type": "box",
+        "layout": "vertical",
+        "backgroundColor": "#F7F9FC",
+        "contents": [
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+              {
+                "type": "box",
+                "layout": "horizontal",
+                "alignItems": "center",
+                "contents": [
+                  {
+                    "type": "image",
+                    "url": "https://cdn-icons-png.flaticon.com/512/54/54481.png",
+                    "size": "18px",
+                    "aspectRatio": "1:1",
+                    "flex": 0
+                  },
+                  {
+                    "type": "text",
+                    "text": "ผลการค้นหา",
+                    "weight": "bold",
+                    "size": "lg",
+                    "color": "#0F4C81",
+                    "gravity": "center",
+                    "margin": "sm"
+                  }
+                ]
+              },
+              {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                  {
+                    "type": "text",
+                    "text": `พบทั้งหมด ${totalFound} รายการ`,
+                    "color": "#5A6E85",
+                    "size": "xs",
+                    "align": "center",
+                    "gravity": "center"
+                  }
+                ],
+                "backgroundColor": "#E8EDF5",
+                "cornerRadius": "md",
+                "paddingStart": "sm",
+                "paddingEnd": "sm",
+                "paddingTop": "xs",
+                "paddingBottom": "xs",
+                "flex": 0
+              }
+            ],
+            "justifyContent": "space-between",
+            "alignItems": "center"
+          },
+          {
+            "type": "box",
+            "layout": "vertical",
+            "spacing": "sm",
+            "margin": "md",
+            "contents": userBoxes
+          }
+        ],
+        "paddingAll": "md"
       },
       "footer": {
-        "type": "box", "layout": "vertical",
-        "contents": [{ "type": "text", "text": "Geno3179", "color": "#aaaaaa", "size": "xxs", "align": "center" }],
-        "paddingAll": "10px", "paddingTop": "0px"
+        "type": "box",
+        "layout": "vertical",
+        "backgroundColor": "#F7F9FC",
+        "contents": [
+          {
+            "type": "text",
+            "text": "โรตี79",
+            "color": "#4A607A",
+            "size": "xs",
+            "align": "center"
+          }
+        ],
+        "paddingBottom": "md",
+        "paddingTop": "none"
       }
     });
   }
