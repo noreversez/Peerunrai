@@ -1301,6 +1301,63 @@
     });
   });
 
+  // ── Water Drops Animation ──
+  (function () {
+    const canvas = document.createElement('canvas');
+    canvas.id = 'rainCanvas';
+    canvas.style.position = 'fixed';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+    canvas.style.zIndex = '-1'; // หน้า vanta-bg แต่หลัง UI
+    canvas.style.pointerEvents = 'none';
+    canvas.style.opacity = '0.7';
+    document.body.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    let W, H, drops = [];
+    const COUNT = 60; // จำนวนหยดน้ำ
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function Drop() {
+      this.reset(true);
+    }
+    Drop.prototype.reset = function (init) {
+      this.x = Math.random() * W;
+      this.y = init ? Math.random() * H : -20;
+      this.r = Math.random() * 1.5 + 0.8; // ขนาดจุด
+      this.vy = Math.random() * 4 + 2;    // ความเร็วในการตก (เร็วกว่าหิมะ)
+      this.alpha = Math.random() * 0.5 + 0.2;
+    };
+    Drop.prototype.update = function () {
+      this.y += this.vy;
+      if (this.y > H + 10) this.reset(false);
+    };
+    Drop.prototype.draw = function () {
+      ctx.beginPath();
+      // สร้างเป็นวงรียาวๆ ให้เหมือนหยดน้ำกำลังตก
+      ctx.ellipse(this.x, this.y, this.r * 0.8, this.r * 2.5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(180, 210, 255, ${this.alpha})`; // สีฟ้าอ่อนๆ เหมือนน้ำ
+      ctx.fill();
+    };
+
+    for (let i = 0; i < COUNT; i++) drops.push(new Drop());
+
+    function loop() {
+      ctx.clearRect(0, 0, W, H);
+      drops.forEach(d => { d.update(); d.draw(); });
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+
   // ── Vanta.js Background ──
   // Scripts for Vanta are loaded right before the closing body tag
   if (typeof VANTA !== 'undefined') {
