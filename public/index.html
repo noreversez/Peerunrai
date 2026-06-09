@@ -735,7 +735,7 @@
   </style>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.fog.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.waves.min.js"></script>
 </head>
 <body>
 <div id="vanta-bg" style="position: fixed; z-index: -1; width: 100vw; height: 100vh; top: 0; left: 0; opacity: 0.4;"></div>
@@ -1301,10 +1301,10 @@
     });
   });
 
-  // ── Water Drops Animation ──
+  // ── Firefly Animation ──
   (function () {
     const canvas = document.createElement('canvas');
-    canvas.id = 'rainCanvas';
+    canvas.id = 'fireflyCanvas';
     canvas.style.position = 'fixed';
     canvas.style.top = '0';
     canvas.style.left = '0';
@@ -1312,12 +1312,11 @@
     canvas.style.height = '100vh';
     canvas.style.zIndex = '-1'; // หน้า vanta-bg แต่หลัง UI
     canvas.style.pointerEvents = 'none';
-    canvas.style.opacity = '0.7';
     document.body.appendChild(canvas);
 
     const ctx = canvas.getContext('2d');
-    let W, H, drops = [];
-    const COUNT = 60; // จำนวนหยดน้ำ
+    let W, H, fireflies = [];
+    const COUNT = 30; // จำนวนหิ่งห้อย
 
     function resize() {
       W = canvas.width = window.innerWidth;
@@ -1326,33 +1325,49 @@
     window.addEventListener('resize', resize);
     resize();
 
-    function Drop() {
+    function Firefly() {
       this.reset(true);
     }
-    Drop.prototype.reset = function (init) {
+    Firefly.prototype.reset = function (init) {
       this.x = Math.random() * W;
-      this.y = init ? Math.random() * H : -20;
-      this.r = Math.random() * 1.5 + 0.8; // ขนาดจุด
-      this.vy = Math.random() * 4 + 2;    // ความเร็วในการตก (เร็วกว่าหิมะ)
-      this.alpha = Math.random() * 0.5 + 0.2;
+      this.y = Math.random() * H;
+      this.r = Math.random() * 2 + 1; // ขนาดจุด
+      this.vx = (Math.random() - 0.5) * 0.5; // ขยับซ้ายขวาช้าๆ
+      this.vy = (Math.random() - 0.5) * 0.5; // ขยับขึ้นลงช้าๆ
+      this.alpha = Math.random();
+      this.alphaDir = Math.random() > 0.5 ? 0.01 : -0.01; // ความเร็วในการกระพริบ
     };
-    Drop.prototype.update = function () {
+    Firefly.prototype.update = function () {
+      this.x += this.vx;
       this.y += this.vy;
-      if (this.y > H + 10) this.reset(false);
+      
+      // กระพริบ (Oscillate alpha)
+      this.alpha += this.alphaDir;
+      if (this.alpha >= 1) {
+        this.alpha = 1;
+        this.alphaDir = -Math.random() * 0.02 - 0.005;
+      } else if (this.alpha <= 0) {
+        this.alpha = 0;
+        this.alphaDir = Math.random() * 0.02 + 0.005;
+        // เมื่อมืดสนิท ค่อยสุ่มตำแหน่งใหม่นิดหน่อยให้ดูสมจริง
+        this.x = Math.random() * W;
+        this.y = Math.random() * H;
+      }
     };
-    Drop.prototype.draw = function () {
+    Firefly.prototype.draw = function () {
       ctx.beginPath();
-      // สร้างเป็นวงรียาวๆ ให้เหมือนหยดน้ำกำลังตก
-      ctx.ellipse(this.x, this.y, this.r * 0.8, this.r * 2.5, 0, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(180, 210, 255, ${this.alpha})`; // สีฟ้าอ่อนๆ เหมือนน้ำ
+      ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 240, 180, ${this.alpha})`; // สีเหลืองนวลคล้ายหิ่งห้อย
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = "rgba(255, 240, 180, 1)";
       ctx.fill();
     };
 
-    for (let i = 0; i < COUNT; i++) drops.push(new Drop());
+    for (let i = 0; i < COUNT; i++) fireflies.push(new Firefly());
 
     function loop() {
       ctx.clearRect(0, 0, W, H);
-      drops.forEach(d => { d.update(); d.draw(); });
+      fireflies.forEach(f => { f.update(); f.draw(); });
       requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
@@ -1361,20 +1376,20 @@
   // ── Vanta.js Background ──
   // Scripts for Vanta are loaded right before the closing body tag
   if (typeof VANTA !== 'undefined') {
-    VANTA.FOG({
+    VANTA.WAVES({
       el: "#vanta-bg",
       mouseControls: true,
       touchControls: true,
       gyroControls: false,
       minHeight: 200.00,
       minWidth: 200.00,
-      highlightColor: 0x1e3a8a, // ฟ้าเข้ม
-      midtoneColor: 0x0f172a,   // ฟ้าอมดำ
-      lowlightColor: 0x0f1117,  // ดำ
-      baseColor: 0x0f1117,      // ดำเข้ม
-      blurFactor: 0.60,
-      speed: 1.50,
-      zoom: 1.00
+      scale: 1.00,
+      scaleMobile: 1.00,
+      color: 0x070c18, // สีน้ำทะเลเข้มมากเกือบดำ
+      shininess: 25.00,
+      waveHeight: 12.00,
+      waveSpeed: 0.60,
+      zoom: 0.85
     });
   }
   // URL parameter routing for direct links (auto-open modals)
