@@ -736,11 +736,12 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.waves.min.js"></script>
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
 </head>
 <body>
 <div id="vanta-bg" style="position: fixed; z-index: -1; width: 100vw; height: 100vh; top: 0; left: 0; opacity: 0.4;"></div>
 
-<header>
+<header data-aos="fade-down" data-aos-duration="600">
   <a class="logo" href="/">
     <img class="logo-img" src="https://img2.pic.in.th/ChatGPT-Image-4-..-2569-09_57_31.png" alt="logo" />
     พี่รุ่นไรน้อง
@@ -768,7 +769,7 @@
 </header>
 
 <main>
-  <section class="hero">
+  <section class="hero" data-aos="fade-up" data-aos-duration="800">
     <div class="hero-icon">
       <img src="https://img2.pic.in.th/ChatGPT-Image-4-..-2569-09_57_31.png" alt="พี่รุ่นไรน้อง" />
     </div>
@@ -778,7 +779,7 @@
     <p>ค้นหาด้วยชื่อหรือนามสกุล รองรับการสะกดผิดและยศนำหน้า</p>
   </section>
 
-  <div class="search-wrap">
+  <div class="search-wrap" data-aos="fade-up" data-aos-delay="150" data-aos-duration="800">
     <div class="search-box">
       <i data-lucide="search" class="search-icon" width="20" height="20"></i>
       <input
@@ -1392,6 +1393,14 @@
       zoom: 0.85
     });
   }
+  
+  // ── Init AOS (Scroll Animation) ──
+  AOS.init({
+    duration: 800,
+    once: true,
+    offset: 50
+  });
+
   // URL parameter routing for direct links (auto-open modals)
   const params = new URLSearchParams(window.location.search);
   const modalToOpen = params.get('modal');
@@ -1412,6 +1421,10 @@
 
   // Initialize Lucide icons
   lucide.createIcons();
+</script>
+<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+<script>
+  AOS.init({ once: true, duration: 800, offset: 50 });
 </script>
 </body>
 </html>
