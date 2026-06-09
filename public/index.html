@@ -734,9 +734,11 @@
     }
   </style>
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
 </head>
 <body>
-<canvas id="snowCanvas" aria-hidden="true"></canvas>
+<div id="vanta-bg" style="position: fixed; z-index: -1; width: 100vw; height: 100vh; top: 0; left: 0;"></div>
 
 <header>
   <a class="logo" href="/">
@@ -1299,59 +1301,25 @@
     });
   });
 
-  // ── Snow Animation ──
-  (function () {
-    const canvas = document.getElementById('snowCanvas');
-    const ctx    = canvas.getContext('2d');
-    const isDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-    let W, H, flakes = [];
-    const COUNT = 80;
-
-    function resize() {
-      W = canvas.width  = window.innerWidth;
-      H = canvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resize);
-    resize();
-
-    function Flake() {
-      this.reset(true);
-    }
-    Flake.prototype.reset = function (init) {
-      this.x    = Math.random() * W;
-      this.y    = init ? Math.random() * H : -10;
-      this.r    = Math.random() * 3 + 1;          // radius 1–4
-      this.vy   = Math.random() * 0.8 + 0.3;      // fall speed
-      this.vx   = (Math.random() - 0.5) * 0.4;   // drift
-      this.wave = Math.random() * Math.PI * 2;    // phase offset
-      this.alpha= Math.random() * 0.5 + 0.2;      // opacity 0.2–0.7
-    };
-    Flake.prototype.update = function (t) {
-      this.wave += 0.015;
-      this.x += this.vx + Math.sin(this.wave) * 0.3;
-      this.y += this.vy;
-      if (this.y > H + 10) this.reset(false);
-    };
-    Flake.prototype.draw = function () {
-      const color = isDark() ? '255,255,255' : '100,140,200';
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${color},${this.alpha})`;
-      ctx.fill();
-    };
-
-    for (let i = 0; i < COUNT; i++) flakes.push(new Flake());
-
-    let last = 0;
-    function loop(ts) {
-      const dt = ts - last; last = ts;
-      ctx.clearRect(0, 0, W, H);
-      flakes.forEach(f => { f.update(dt); f.draw(); });
-      requestAnimationFrame(loop);
-    }
-    requestAnimationFrame(loop);
-  })();
+  // ── Vanta.js Background ──
+  // Scripts for Vanta are loaded right before the closing body tag
+  if (typeof VANTA !== 'undefined') {
+    VANTA.NET({
+      el: "#vanta-bg",
+      mouseControls: true,
+      touchControls: true,
+      gyroControls: false,
+      minHeight: 200.00,
+      minWidth: 200.00,
+      scale: 1.00,
+      scaleMobile: 1.00,
+      color: 0x3b82f6, // สีฟ้า
+      backgroundColor: 0x0f1117, // พื้นหลังสีดำเข้ม
+      points: 15.00,
+      maxDistance: 22.00,
+      spacing: 16.00
+    });
+  }
   // URL parameter routing for direct links (auto-open modals)
   const params = new URLSearchParams(window.location.search);
   const modalToOpen = params.get('modal');
