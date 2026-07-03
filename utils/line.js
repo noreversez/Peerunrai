@@ -50,33 +50,104 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
   for (let i = 0; i < bubbleCount; i++) {
     const chunk = results.slice(i * itemsPerBubble, (i + 1) * itemsPerBubble);
     
-    const userBoxes = chunk.map((user) => {
-      const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
-      const nameNoSpace = fullName.replace(/\s+/g, "").toLowerCase();
-      const isExactMatch = nameNoSpace.includes(mainSearchTerm) && mainSearchTerm.length > 1;
-
-      return {
+    const innerContents = [
+      {
         "type": "box",
         "layout": "horizontal",
-        "backgroundColor": "#FFFFFF",
-        "cornerRadius": "md",
-        "paddingAll": "md",
+        "justifyContent": "space-between",
         "alignItems": "center",
         "contents": [
           {
-            "type": "image",
-            "url": "https://cdn-icons-png.flaticon.com/512/1144/1144760.png",
-            "size": "16px",
-            "aspectRatio": "1:1",
-            "flex": 0
+            "type": "box",
+            "layout": "horizontal",
+            "alignItems": "center",
+            "spacing": "sm",
+            "contents": [
+              {
+                "type": "image",
+                "url": "https://cdn-icons-png.flaticon.com/512/54/54481.png",
+                "size": "16px",
+                "flex": 0
+              },
+              {
+                "type": "text",
+                "text": "ผลการค้นหา",
+                "size": "sm",
+                "weight": "bold",
+                "color": "#0F4C81"
+              }
+            ]
+          },
+          {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": "#E8EDF5",
+            "cornerRadius": "md",
+            "paddingStart": "8px",
+            "paddingEnd": "8px",
+            "paddingTop": "4px",
+            "paddingBottom": "4px",
+            "flex": 0,
+            "contents": [
+              {
+                "type": "text",
+                "text": `พบ ${totalFound} รายการ`,
+                "color": "#16A34A",
+                "size": "xxs",
+                "align": "center",
+                "weight": "bold"
+              }
+            ]
+          }
+        ]
+      }
+    ];
+
+    chunk.forEach((user, index) => {
+      innerContents.push({
+        "type": "separator",
+        "color": index === 0 ? "#E8EDF5" : "#F1F5F9",
+        "margin": "md"
+      });
+
+      const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
+      const numIdx = (page - 1) * itemsPerPage + index + 1;
+
+      innerContents.push({
+        "type": "box",
+        "layout": "horizontal",
+        "alignItems": "center",
+        "spacing": "md",
+        "margin": "md",
+        "contents": [
+          {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": "#0F4C81",
+            "cornerRadius": "xl",
+            "width": "24px",
+            "height": "24px",
+            "justifyContent": "center",
+            "alignItems": "center",
+            "flex": 0,
+            "contents": [
+              {
+                "type": "text",
+                "text": String(numIdx),
+                "color": "#FFFFFF",
+                "size": "xs",
+                "weight": "bold",
+                "align": "center"
+              }
+            ]
           },
           {
             "type": "text",
             "text": fullName,
-            "margin": "md",
+            "size": "md",
             "weight": "bold",
-            "color": isExactMatch ? "#0F4C81" : "#333333",
-            "size": "md"
+            "color": "#111111",
+            "wrap": true
           },
           {
             "type": "box",
@@ -93,13 +164,14 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
             ],
             "backgroundColor": "#FF7A00",
             "cornerRadius": "xl",
-            "paddingTop": "xs",
-            "paddingBottom": "xs",
-            "width": "60px",
+            "paddingTop": "4px",
+            "paddingBottom": "4px",
+            "paddingStart": "10px",
+            "paddingEnd": "10px",
             "flex": 0
           }
         ]
-      };
+      });
     });
 
     bubbles.push({
@@ -122,85 +194,51 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
       "body": {
         "type": "box",
         "layout": "vertical",
+        "paddingAll": "14px",
         "backgroundColor": "#F7F9FC",
         "contents": [
           {
             "type": "box",
-            "layout": "horizontal",
-            "contents": [
-              {
-                "type": "box",
-                "layout": "horizontal",
-                "alignItems": "center",
-                "contents": [
-                  {
-                    "type": "image",
-                    "url": "https://cdn-icons-png.flaticon.com/512/54/54481.png",
-                    "size": "18px",
-                    "aspectRatio": "1:1",
-                    "flex": 0
-                  },
-                  {
-                    "type": "text",
-                    "text": "ผลการค้นหา",
-                    "weight": "bold",
-                    "size": "lg",
-                    "color": "#0F4C81",
-                    "gravity": "center",
-                    "margin": "sm"
-                  }
-                ]
-              },
-              {
-                "type": "box",
-                "layout": "vertical",
-                "contents": [
-                  {
-                    "type": "text",
-                    "text": `พบทั้งหมด ${totalFound} รายการ`,
-                    "color": "#16A34A",
-                    "size": "xs",
-                    "align": "center",
-                    "gravity": "center"
-                  }
-                ],
-                "backgroundColor": "#E8EDF5",
-                "cornerRadius": "md",
-                "paddingStart": "sm",
-                "paddingEnd": "sm",
-                "paddingTop": "xs",
-                "paddingBottom": "xs",
-                "flex": 0
-              }
-            ],
-            "justifyContent": "space-between",
-            "alignItems": "center"
-          },
-          {
-            "type": "box",
             "layout": "vertical",
-            "spacing": "sm",
-            "margin": "md",
-            "contents": userBoxes
+            "paddingAll": "16px",
+            "cornerRadius": "14px",
+            "borderWidth": "2px",
+            "borderColor": "#0F4C81",
+            "backgroundColor": "#FFFFFF",
+            "contents": innerContents
           }
-        ],
-        "paddingAll": "md"
+        ]
       },
       "footer": {
         "type": "box",
         "layout": "vertical",
         "backgroundColor": "#F7F9FC",
+        "spacing": "sm",
         "contents": [
+          {
+            "type": "button",
+            "style": "primary",
+            "color": "#0F4C81",
+            "height": "sm",
+            "action": {
+              "type": "uri",
+              "label": "🌐 ดูบนเว็บไซต์",
+              "uri": `https://peerunrai.vercel.app/?q=${encodeURIComponent(cleanKey)}`
+            }
+          },
           {
             "type": "text",
             "text": "RPCA79",
             "color": "#4A607A",
             "size": "xs",
-            "align": "center"
+            "align": "center",
+            "margin": "md"
           }
         ],
         "paddingBottom": "md",
-        "paddingTop": "none"
+        "paddingTop": "none",
+        "paddingStart": "14px",
+        "paddingEnd": "14px"
       }
     });
   }
