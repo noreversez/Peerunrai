@@ -1096,17 +1096,6 @@
     }
   }
 
-    try {
-      const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}`);
-      const json = await res.json();
-      if (!res.ok) { showError(json.error || 'เกิดข้อผิดพลาด'); return; }
-      totalResults = json.total;
-      renderResults(json);
-    } catch (e) {
-      showError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
-    }
-  }
-
   // ── Render ──
   let observer = null;
   function renderResults({ results, total, keyword, page }, append = false) {
@@ -1545,6 +1534,14 @@
     openModal('modalTos');
   } else if (modalToOpen === 'howto') {
     openModal('modalHowTo');
+  }
+  
+  const qParam = params.get('q');
+  if (qParam && qParam.trim().length > 0) {
+    input.value = qParam;
+    clearBtn.classList.add('visible');
+    hints.style.display = 'none';
+    doSearch(qParam.trim(), 1);
   }
   
   // ── Record Pageview ──
