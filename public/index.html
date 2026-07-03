@@ -32,6 +32,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/gh/lazywasabi/thai-web-fonts@7/fonts/LineSeedThai/LineSeedThai.css" rel="stylesheet" />
   <style>
     *, *::before, *::after { 
       box-sizing: border-box; 
@@ -82,7 +83,7 @@
     html { scroll-behavior: smooth; }
 
     body {
-      font-family: 'Sarabun', 'Inter', sans-serif;
+      font-family: 'LINE Seed Thai', 'Sarabun', 'Inter', sans-serif;
       background: var(--bg);
       color: var(--text-1);
       min-height: 100vh;
@@ -441,8 +442,16 @@
     .search-wrap {
       max-width: 680px;
       margin: 0 auto;
-      padding: 0 24px;
+      padding: 16px 24px;
       width: 100%;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(var(--bg-rgb), 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid transparent;
+      transition: all 0.3s ease;
     }
     .search-box {
       position: relative;
@@ -516,7 +525,7 @@
       border: 1px solid var(--border);
       cursor: pointer;
       transition: background .12s, border-color .12s, color .12s;
-      font-family: 'Sarabun', sans-serif;
+      font-family: 'LINE Seed Thai', 'Sarabun', sans-serif;
       user-select: none;
     }
     .hint-tag:hover {
@@ -604,11 +613,17 @@
       text-overflow: ellipsis;
     }
     .card-name mark {
-      background: rgba(37,99,235,.12);
+      background: linear-gradient(120deg, rgba(37,99,235,0.2) 0%, rgba(37,99,235,0.2) 100%);
+      background-repeat: no-repeat;
+      background-size: 0% 100%;
       color: var(--accent);
-      border-radius: 3px;
-      padding: 0 1px;
+      border-radius: 4px;
+      padding: 0 4px;
       font-weight: 700;
+      animation: highlightSweep 0.6s ease-out forwards;
+    }
+    @keyframes highlightSweep {
+      to { background-size: 100% 100%; }
     }
     .card-sub {
       font-size: 12.5px;
@@ -731,6 +746,45 @@
       .header-nav { gap: 0; }
       .nav-icon-btn { padding: 7px 6px; }
       .modal-sheet { max-height: 92vh; border-radius: 16px 16px 0 0; }
+      .back-to-top { bottom: 20px; right: 20px; width: 44px; height: 44px; }
+    }
+
+    .search-wrap {
+      margin-bottom: 24px;
+    }
+
+    /* ── Back to Top Button ── */
+    .back-to-top {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      width: 48px;
+      height: 48px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(37,99,235,0.4);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(20px);
+      transition: opacity 0.3s, transform 0.3s, background 0.2s;
+      z-index: 99;
+    }
+    .back-to-top.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .back-to-top:hover {
+      background: var(--accent-hover);
+    }
+    .back-to-top:active {
+      transform: scale(0.95);
     }
   </style>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -977,6 +1031,10 @@
   </div>
 </div>
 
+<button id="btnBackToTop" class="back-to-top" aria-label="กลับขึ้นบนสุด">
+  <i data-lucide="arrow-up"></i>
+</button>
+
 <footer>
   <div style="margin-bottom: 6px;">พี่รุ่นไรน้อง · ระบบค้นหา นรต.</div>
   <div style="font-size: 11px; color: var(--text-3); margin-bottom: 4px;">
@@ -1022,10 +1080,21 @@
   });
 
   // ── Search ──
-  async function doSearch(q, page) {
+  async function doSearch(q, page, append = false) {
     currentQuery = q;
     currentPage  = page;
-    showLoading();
+    showLoading(append);
+
+    try {
+      const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}`);
+      const json = await res.json();
+      if (!res.ok) { showError(json.error || 'เกิดข้อผิดพลาด'); return; }
+      totalResults = json.total;
+      renderResults(json, append);
+    } catch (e) {
+      showError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+    }
+  }
 
     try {
       const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}`);
@@ -1039,8 +1108,14 @@
   }
 
   // ── Render ──
-  function renderResults({ results, total, keyword, page }) {
-    section.innerHTML = '';
+  let observer = null;
+  function renderResults({ results, total, keyword, page }, append = false) {
+    if (!append) {
+      section.innerHTML = '';
+    } else {
+      const oldSentinel = document.getElementById('loadingSentinel');
+      if (oldSentinel) oldSentinel.remove();
+    }
 
     if (total === 0) {
       section.innerHTML = `
@@ -1052,13 +1127,19 @@
       return;
     }
 
-    const start = (page - 1) * PER_PAGE + 1;
+    const start = 1;
     const end   = Math.min(page * PER_PAGE, total);
 
-    const meta = document.createElement('div');
-    meta.className = 'results-meta';
-    meta.innerHTML = `พบ <strong>${total.toLocaleString('th')}</strong> รายการ · แสดง ${start}–${end}`;
-    section.appendChild(meta);
+    if (!append) {
+      const meta = document.createElement('div');
+      meta.className = 'results-meta';
+      meta.id = 'resultsMeta';
+      meta.innerHTML = `พบ <strong>${total.toLocaleString('th')}</strong> รายการ · แสดงผลล่าสุด ${end}`;
+      section.appendChild(meta);
+    } else {
+      const meta = document.getElementById('resultsMeta');
+      if (meta) meta.innerHTML = `พบ <strong>${total.toLocaleString('th')}</strong> รายการ · แสดงผลล่าสุด ${end}`;
+    }
 
     results.forEach((u, i) => {
       const fullName  = `${u.first_name} ${u.last_name}`.trim();
@@ -1066,7 +1147,8 @@
       const highlight = highlightMatch(fullName, keyword);
       const card = document.createElement('div');
       card.className = 'result-card';
-      card.style.animationDelay = `${Math.min(i * 0.025, 0.15)}s`;
+      // ลด delay animation ลงนิดหน่อยสำหรับการโหลดเพิ่ม
+      card.style.animationDelay = `${Math.min((i % PER_PAGE) * 0.025, 0.15)}s`;
       card.innerHTML = `
         <div class="card-body">
           <div class="card-name">${highlight}</div>
@@ -1077,38 +1159,24 @@
       section.appendChild(card);
     });
 
-    // Pagination
+    // Infinite Scroll Sentinel
     const totalPages = Math.ceil(total / PER_PAGE);
-    if (totalPages > 1) {
-      const pag = document.createElement('div');
-      pag.className = 'pagination';
+    if (page < totalPages) {
+      const sentinel = document.createElement('div');
+      sentinel.id = 'loadingSentinel';
+      sentinel.style.padding = '24px';
+      sentinel.style.textAlign = 'center';
+      sentinel.innerHTML = '<div class="spinner" style="margin: 0 auto; width: 24px; height: 24px;"></div>';
+      section.appendChild(sentinel);
 
-      const prevBtn = makePageBtn('← ก่อนหน้า', page <= 1);
-      prevBtn.addEventListener('click', () => doSearch(currentQuery, page - 1));
-      pag.appendChild(prevBtn);
-
-      // page numbers (max 5 visible)
-      const range = getPageRange(page, totalPages);
-      range.forEach(p => {
-        if (p === '…') {
-          const el = document.createElement('span');
-          el.className = 'page-btn';
-          el.textContent = '…';
-          el.style.pointerEvents = 'none';
-          pag.appendChild(el);
-        } else {
-          const btn = makePageBtn(p, false);
-          if (p === page) btn.classList.add('active');
-          btn.addEventListener('click', () => doSearch(currentQuery, p));
-          pag.appendChild(btn);
+      if (observer) observer.disconnect();
+      observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          observer.disconnect();
+          doSearch(currentQuery, page + 1, true);
         }
-      });
-
-      const nextBtn = makePageBtn('ถัดไป →', page >= totalPages);
-      nextBtn.addEventListener('click', () => doSearch(currentQuery, page + 1));
-      pag.appendChild(nextBtn);
-
-      section.appendChild(pag);
+      }, { rootMargin: '150px' });
+      observer.observe(sentinel);
     }
   }
 
@@ -1142,7 +1210,8 @@
     }
   }
 
-  function showLoading() {
+  function showLoading(append = false) {
+    if (append) return; // Infinite scroll loading spinner is handled by the sentinel
     let skelHTML = '';
     for(let i=0; i<4; i++) {
       skelHTML += `
@@ -1302,6 +1371,48 @@
     });
   });
 
+  // ── Back to Top & Pull to Refresh ──
+  const btnBackToTop = document.getElementById('btnBackToTop');
+  if (btnBackToTop) {
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 300) {
+        btnBackToTop.classList.add('visible');
+      } else {
+        btnBackToTop.classList.remove('visible');
+      }
+    }, { passive: true });
+
+    btnBackToTop.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
+  // Pull to Refresh (Mobile)
+  let touchStartY = 0;
+  let touchMoveY = 0;
+  document.addEventListener('touchstart', e => {
+    if (window.scrollY === 0) touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+  
+  document.addEventListener('touchmove', e => {
+    if (window.scrollY === 0 && touchStartY > 0) {
+      touchMoveY = e.touches[0].clientY;
+    }
+  }, { passive: true });
+  
+  document.addEventListener('touchend', e => {
+    if (touchStartY > 0 && touchMoveY > touchStartY + 120) {
+      // Pulled down sufficiently
+      haptic();
+      input.value = '';
+      clearBtn.classList.remove('visible');
+      hints.style.display = 'flex';
+      showEmpty();
+    }
+    touchStartY = 0;
+    touchMoveY = 0;
+  });
+
   // ── Firefly Animation ──
   (function () {
     const canvas = document.createElement('canvas');
@@ -1317,7 +1428,20 @@
 
     const ctx = canvas.getContext('2d');
     let W, H, fireflies = [];
-    const COUNT = 30; // จำนวนหิ่งห้อย
+    const COUNT = 35; // จำนวนหิ่งห้อย
+
+    let mouseX = -1000;
+    let mouseY = -1000;
+
+    document.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    }, { passive: true });
+    
+    document.addEventListener('touchmove', (e) => {
+      mouseX = e.touches[0].clientX;
+      mouseY = e.touches[0].clientY;
+    }, { passive: true });
 
     function resize() {
       W = canvas.width = window.innerWidth;
@@ -1339,9 +1463,33 @@
       this.alphaDir = Math.random() > 0.5 ? 0.01 : -0.01; // ความเร็วในการกระพริบ
     };
     Firefly.prototype.update = function () {
+      // Mouse interaction (Dodge)
+      const dx = this.x - mouseX;
+      const dy = this.y - mouseY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 100) {
+        const force = (100 - dist) / 100;
+        this.vx += (dx / dist) * force * 0.5;
+        this.vy += (dy / dist) * force * 0.5;
+      }
+
+      // Friction & Speed limit
+      this.vx *= 0.98;
+      this.vy *= 0.98;
+      
+      // Base wandering if slow
+      if (Math.abs(this.vx) < 0.1) this.vx += (Math.random() - 0.5) * 0.1;
+      if (Math.abs(this.vy) < 0.1) this.vy += (Math.random() - 0.5) * 0.1;
+
       this.x += this.vx;
       this.y += this.vy;
       
+      // Wrap around screen
+      if (this.x < -20) this.x = W + 20;
+      if (this.x > W + 20) this.x = -20;
+      if (this.y < -20) this.y = H + 20;
+      if (this.y > H + 20) this.y = -20;
+
       // กระพริบ (Oscillate alpha)
       this.alpha += this.alphaDir;
       if (this.alpha >= 1) {
@@ -1350,16 +1498,13 @@
       } else if (this.alpha <= 0) {
         this.alpha = 0;
         this.alphaDir = Math.random() * 0.02 + 0.005;
-        // เมื่อมืดสนิท ค่อยสุ่มตำแหน่งใหม่นิดหน่อยให้ดูสมจริง
-        this.x = Math.random() * W;
-        this.y = Math.random() * H;
       }
     };
     Firefly.prototype.draw = function () {
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(255, 240, 180, ${this.alpha})`; // สีเหลืองนวลคล้ายหิ่งห้อย
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.shadowColor = "rgba(255, 240, 180, 1)";
       ctx.fill();
     };
