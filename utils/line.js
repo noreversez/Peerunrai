@@ -246,7 +246,7 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
   if (totalFound > page * itemsPerPage) {
     const safeKeyword = keyword.substring(0, 50);
     bubbles.push({
-      "type": "bubble", "size": "micro",
+      "type": "bubble", "size": "mega",
       "body": {
         "type": "box", "layout": "vertical",
         "contents": [{
@@ -276,6 +276,8 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + LINE_ACCESS_TOKEN }
     });
   } catch (e) {
-    console.error("Error replying with flex:", e?.response?.data || e.message);
+    const apiError = e?.response?.data ? JSON.stringify(e.response.data) : e.message;
+    console.error("Error replying with flex:", apiError);
+    throw new Error(apiError);
   }
 }
