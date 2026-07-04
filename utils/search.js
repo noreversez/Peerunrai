@@ -44,6 +44,7 @@ function buildScores(data, tokens) {
       const tNorm = normIndex(t);
       return fn.includes(t)               ||
              ln.includes(t)               ||
+             gen === t                    ||
              normIndex(fn).includes(tNorm) ||
              normIndex(ln).includes(tNorm);
     });
@@ -92,8 +93,9 @@ async function directSearch(rawTokens) {
     rawTokens.forEach(t => {
       const conds = [
         `first_name.ilike.%${t}%`,
-        `last_name.ilike.%${t}%`,
+        `last_name.ilike.%${t}%`
       ];
+      if (!isNaN(t) && t.trim() !== '') conds.push(`generation.eq.${t}`);
       query = query.or(conds.join(','));
     });
 
@@ -117,6 +119,7 @@ async function directSearch(rawTokens) {
         `norm_first.ilike.%${tOld}%`,
         `norm_last.ilike.%${tOld}%`,
       ];
+      if (!isNaN(t) && t.trim() !== '') conds.push(`generation.eq.${t}`);
       query = query.or(conds.join(','));
     });
 
