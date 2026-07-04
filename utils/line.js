@@ -286,22 +286,25 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
                 "text": "ยังมีผลลัพธ์อีก!",
                 "weight": "bold",
                 "size": "lg",
-                "color": "#0F4C81"
+                "color": "#0F4C81",
+                "align": "center"
               },
               {
                 "type": "text",
-                "text": `ซ่อนอยู่อีก ${remainingCount.toLocaleString('th-TH')} รายการ 🔍`,
+                "text": `ยังมีอีก ${remainingCount.toLocaleString('th-TH')} รายการ 🔍`,
                 "size": "sm",
                 "color": "#16A34A",
                 "margin": "md",
-                "weight": "bold"
+                "weight": "bold",
+                "align": "center"
               },
               {
                 "type": "text",
                 "text": "กดปุ่มด้านล่างเพื่อดูรายชื่อถัดไป",
                 "size": "xs",
                 "color": "#64748B",
-                "margin": "sm"
+                "margin": "sm",
+                "align": "center"
               }
             ]
           }
@@ -335,8 +338,10 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
         ],
         "paddingBottom": "md",
         "paddingTop": "none",
-        "paddingStart": "14px",
-        "paddingEnd": "14px"
+        "paddingStart": "30px",
+        "paddingEnd": "30px",
+        "justifyContent": "center",
+        "alignItems": "center"
       }
     });
   }
