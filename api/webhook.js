@@ -94,9 +94,9 @@ export default async function handler(req, res) {
           // แสดงแค่ Loading Animation (ห้ามใช้ replyToken ก่อนการค้นหาเสร็จสิ้น)
           if (userId) await showLoadingAnimation(userId);
 
-          // ค้นหาใน Supabase
+          // ค้นหาใน Supabase (จำกัด 10 ต่อหน้าเพื่อความเร็ว)
           const page = 1;
-          const { results, total } = await searchUsers(keyword, page, 30);
+          const { results, total } = await searchUsers(keyword, page, 10);
 
           // บันทึก log แบบ async (ไม่ block การตอบกลับ)
           if (userId) logSearch(userId, keyword, total);
@@ -134,7 +134,17 @@ export default async function handler(req, res) {
               );
             }
           } else {
-            await replyWithFlex(replyToken, keyword, results, total, page, 30, keyword);
+            try {
+              await replyWithFlex(replyToken, keyword, results, total, page, 10, keyword);
+            } catch (flexErr) {
+              console.error('replyWithFlex failed, sending fallback text:', flexErr.message);
+              await replyWithText(replyToken,
+                `⚠️ ระบบประมวลผลนานเกินไปครับ\n\n` +
+                `🔍 พบ "${keyword}" ทั้งหมด ${total} รายการ\n` +
+                `กรุณาลองค้นหาที่เฉพาะเจาะจงขึ้น เช่น "${keyword} 79"\n\n` +
+                `🌐 หรือค้นหาบนเว็บไซต์แทนครับ\nhttps://peerunrai.vercel.app/?q=${encodeURIComponent(keyword)}`
+              );
+            }
           }
         } else {
           const helpMsg = "👮‍♂️ ยินดีต้อนรับสู่ระบบค้นหา นรต.\n\nกรุณาพิมพ์คำสั่งดังนี้:\n- ค้นหาชื่อ: พิมพ์ \"ค้นหา [ชื่อ]\"\n- ค้นหารุ่น: พิมพ์ \"รุ่น [เลขรุ่น]\"\n- ดูประวัติ: พิมพ์ \"ประวัติ\"";
@@ -149,10 +159,15 @@ export default async function handler(req, res) {
           const page = parseInt(data.get('page'), 10) || 1;
 
           if (userId) await showLoadingAnimation(userId);
-          const { results, total } = await searchUsers(keyword, page, 30);
+          const { results, total } = await searchUsers(keyword, page, 10);
           // บันทึก log การเปิดหน้าถัดไปด้วย
           if (userId) logSearch(userId, `${keyword} (หน้า ${page})`, total);
-          await replyWithFlex(replyToken, keyword, results, total, page, 30, keyword);
+          try {
+            await replyWithFlex(replyToken, keyword, results, total, page, 10, keyword);
+          } catch (flexErr) {
+            console.error('Postback replyWithFlex failed:', flexErr.message);
+            await replyWithText(replyToken, `⚠️ เกิดข้อผิดพลาดครับ กรุณาลองใหม่อีกครั้ง หรือค้นหาบนเว็บไซต์\nhttps://peerunrai.vercel.app/?q=${encodeURIComponent(keyword)}`);
+          }
         }
       }
     }

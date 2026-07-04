@@ -97,7 +97,7 @@ async function directSearch(rawTokens) {
       query = query.or(conds.join(','));
     });
 
-    const { data, error } = await query.limit(300);
+    const { data, error } = await query.limit(150); // ลดจาก 300 เพื่อความเร็ว
     if (!error && data && data.length > 0) {
       console.log('directSearch round1 (raw):', rawTokens.join(','), '→', data.length);
       return buildScores(data, rawTokens);
@@ -120,7 +120,7 @@ async function directSearch(rawTokens) {
       query = query.or(conds.join(','));
     });
 
-    const { data, error } = await query.limit(300);
+    const { data, error } = await query.limit(150); // ลดจาก 300 เพื่อความเร็ว
     if (error) {
       console.error('directSearch round2 error:', error.message);
       return [];
