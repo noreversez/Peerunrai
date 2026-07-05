@@ -92,12 +92,17 @@ async function directSearch(rawTokens) {
   {
     let query = supabase.from('users').select('*');
     rawTokens.forEach(t => {
-      const conds = [
-        `first_name.ilike.%${t}%`,
-        `last_name.ilike.%${t}%`
-      ];
-      if (!isNaN(t) && t.trim() !== '') conds.push(`generation.eq.${t}`);
-      query = query.or(conds.join(','));
+      const isNumber = !isNaN(t) && t.trim() !== '';
+      if (isNumber) {
+        // ตัวเลข → ค้นเฉพาะรุ่น (ไม่ค้นชื่อ/นามสกุล เพราะจะได้ขยะ)
+        query = query.or(`generation.eq.${t}`);
+      } else {
+        const conds = [
+          `first_name.ilike.%${t}%`,
+          `last_name.ilike.%${t}%`
+        ];
+        query = query.or(conds.join(','));
+      }
     });
 
     const { data, error } = await query.limit(150); // ลดจาก 300 เพื่อความเร็ว
@@ -135,8 +140,7 @@ async function directSearch(rawTokens) {
 }
 
 // =============================================
-// searchUsers: ค้นหาหลัก
-// ลอง RPC v4 ก่อน → fallback directSearch
+// searchUsers: ค้นหาหลัก (directSearch 2 รอบ)
 // =============================================
 export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
   const rankRegex = /^(พล\.ต\.อ\.|พล\.ต\.ท\.|พล\.ต\.ต\.|พ\.ต\.อ\.|พ\.ต\.ท\.|พ\.ต\.ต\.|ร\.ต\.อ\.|ร\.ต\.ท\.|ร\.ต\.ต\.|ด\.ต\.|จ\.ส\.ต\.|ส\.ต\.อ\.|ส\.ต\.ท\.|ส\.ต\.ต\.|ว่าที่|นาย|นาง|นางสาว|ผู้กอง|หมวด|สารวัตร|จ่า|หมู่|นต\.)(หญิง)?\s*/g;
@@ -146,7 +150,7 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
   const rawTokens = cleanKeyword.split(/\s+/).filter(t => t);
   if (rawTokens.length === 0) return { results: [], total: 0 };
 
-  const cacheKey = `search_v4_${rawTokens.join('_')}_p${page}`;
+  const cacheKey = `search_v5_${rawTokens.join('_')}_p${page}_n${itemsPerPage}`;
   const cached = cacheGet(cacheKey);
   if (cached) return cached;
 
@@ -176,17 +180,8 @@ export async function suggestUsers(keyword) {
   // ป้องกัน Timeout: คำสั้นกว่า 3 ตัวอักษร ข้ามการ suggest
   if (rawTokens.join('').length < 3) return [];
 
-  // ลอง RPC v4 ก่อน
-  const { data: rpcData, error: rpcError } = await supabase.rpc('search_users_v4', {
-    raw_tokens: rawTokens
-  });
-
-  let pool = [];
-  if (!rpcError && rpcData && rpcData.length > 0) {
-    pool = buildScores(rpcData, rawTokens);
-  } else {
-    pool = await directSearch(rawTokens);
-  }
+  // ใช้ directSearch ตรงๆ (แม่นยำกว่า RPC)
+  const pool = await directSearch(rawTokens);
 
   if (pool.length === 0) return [];
 
