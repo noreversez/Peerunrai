@@ -38,20 +38,21 @@ function buildScores(data, tokens) {
     const lnClean = ln.replace(/\s+/g, '');
     const gen     = String(u.generation || '');
 
-    // ── ชั้น 1: ตรวจสอบตรงๆ กับชื่อต้นฉบับ (เหมือนระบบเก่า) ──
-    // ถ้าทุก token พบในชื่อจริง นามสกุลจริง หรือรุ่น → การันตี 100%
-    const matchAllAnywhere = tokens.every(t => {
+    // ── 1. ตรวจสอบตรงๆ กับชื่อต้นฉบับ (แม่นยำสูงสุด) ──
+    const matchRawExact = tokens.every(t => fn.includes(t) || ln.includes(t) || gen === t);
+    
+    // ── 2. ตรวจสอบด้วยเสียง (Phonetic) - ใช้ startsWith ลดขยะ ──
+    const matchPhonetic = tokens.every(t => {
       const tNorm = normIndex(t);
-      return fn.includes(t)               ||
-             ln.includes(t)               ||
-             gen === t                    ||
-             normIndex(fn).includes(tNorm) ||
-             normIndex(ln).includes(tNorm);
+      return normIndex(fn).startsWith(tNorm) || normIndex(ln).startsWith(tNorm);
     });
 
-    if (matchAllAnywhere) {
+    if (matchRawExact) {
       isMatch = true;
-      score += 1000; // บังคับแสดงผล การันตีตรงกับระบบเก่า
+      score += 10000; // ให้คะแนนมหาศาล เพื่อให้อยู่บนสุดเสมอ
+    } else if (matchPhonetic) {
+      isMatch = true;
+      score += 50; // ให้คะแนนน้อย เพื่อไม่ให้เบียดชื่อจริง
     }
 
     // ── ชั้น 2: คะแนนละเอียดแบบ Prefix / Contains ──
@@ -114,10 +115,10 @@ async function directSearch(rawTokens) {
       const nt   = normIndex(t);
       const tOld = t.replace(/[ิีึืุูเแโใไัาอ่้๊๋็์]/g, '');
       const conds = [
-        `norm_first.ilike.%${nt}%`,
-        `norm_last.ilike.%${nt}%`,
-        `norm_first.ilike.%${tOld}%`,
-        `norm_last.ilike.%${tOld}%`,
+        `norm_first.ilike.${nt}%`,
+        `norm_last.ilike.${nt}%`,
+        `norm_first.ilike.${tOld}%`,
+        `norm_last.ilike.${tOld}%`,
       ];
       if (!isNaN(t) && t.trim() !== '') conds.push(`generation.eq.${t}`);
       query = query.or(conds.join(','));
