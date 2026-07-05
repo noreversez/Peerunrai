@@ -149,23 +149,8 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
   const cached = cacheGet(cacheKey);
   if (cached) return cached;
 
-  let data = [];
-
-  // ลอง RPC search_users_v4 ก่อน (ถ้ารันใน Supabase แล้ว)
-  const { data: rpcData, error: rpcError } = await supabase.rpc('search_users_v4', {
-    raw_tokens: rawTokens
-  });
-
-  if (!rpcError && rpcData && rpcData.length > 0) {
-    // RPC คืนผล → คิดคะแนนชั้น 2 ด้วย JS (Exact Match ชื่อต้นฉบับ)
-    data = buildScores(rpcData, rawTokens);
-    console.log('RPC v4 hit:', rawTokens.join(','), '→', data.length, 'results');
-  } else {
-    // Fallback: directSearch แบบ 2 รอบ (ต้นฉบับก่อน → norm ถ้าไม่เจอ)
-    if (rpcError) console.warn('RPC v4 error, fallback:', rpcError?.message);
-    data = await directSearch(rawTokens);
-    console.log('directSearch:', rawTokens.join(','), '→', data.length, 'results');
-  }
+  let data = await directSearch(rawTokens);
+  console.log('directSearch:', rawTokens.join(','), '→', data.length, 'results');
 
   if (data.length === 0) return { results: [], total: 0 };
 
