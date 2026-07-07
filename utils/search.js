@@ -109,7 +109,7 @@ async function directSearch(rawTokens) {
       if (isNumber) {
         query = query.or(`generation.eq.${t}`);
       } else {
-        query = query.or(`first_name.ilike.%${t}%, last_name.ilike.%${t}%`);
+        query = query.or(`first_name.ilike.%${t}%,last_name.ilike.%${t}%`);
       }
     });
 
