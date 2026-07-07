@@ -43,15 +43,22 @@ function buildScores(data, tokens) {
       if (fn.includes(t) || ln.includes(t) || gen === t) exactCount++;
     });
 
-    // ── 2. ตรวจสอบด้วยเสียง (Phonetic) - ใช้ startsWith ลดขยะ ──
-    // ต้องมีพยัญชนะเหลือ >= 3 ตัวหลังตัดสระ ป้องกันค้นกว้างเกิน
+    // ── 2. ตรวจสอบด้วยเสียง (Phonetic) - ใช้ startsWith หรือ === ลดขยะ ──
     let phoneticCount = 0;
     if (exactCount === 0) {
       tokens.forEach(t => {
         const tNorm = normIndex(t);
-        if (tNorm.length >= 3 &&
-            (normIndex(fn).startsWith(tNorm) || normIndex(ln).startsWith(tNorm))) {
-          phoneticCount++;
+        if (!tNorm) return;
+        
+        if (tNorm.length < 3) {
+          // ถ้าสั้นกว่า 3 ตัวอักษร บังคับให้เสียงต้องตรงเป๊ะ (ป้องกันขยะเยอะ)
+          if (normIndex(fn) === tNorm || normIndex(ln) === tNorm) {
+            phoneticCount++;
+          }
+        } else {
+          if (normIndex(fn).startsWith(tNorm) || normIndex(ln).startsWith(tNorm)) {
+            phoneticCount++;
+          }
         }
       });
     }
@@ -156,13 +163,14 @@ async function directSearch(rawTokens) {
     rawTokens.forEach(t => {
       const nt   = normIndex(t);
       const tOld = t.replace(/[ิีึืุูเแโใไัาอ่้๊๋็์]/g, '');
-      // ข้ามถ้าพยัญชนะที่เหลือสั้นกว่า 3 ตัว (ป้องกันค้นกว้างเกิน เช่น แวอาลี → วล)
+      // ── คำสั้นให้ใช้ .eq. (ตรงเป๊ะ) / คำยาวให้ใช้ .ilike.% ──
       if (nt.length < 3 && tOld.length < 3) {
-        console.log('Round2 skip (too short):', t, '→ norm:', nt);
-        return;
+        if (nt) allConds.push(`norm_first.eq.${nt}`, `norm_last.eq.${nt}`);
+        if (tOld) allConds.push(`norm_first.eq.${tOld}`, `norm_last.eq.${tOld}`);
+      } else {
+        if (nt.length >= 3)   allConds.push(`norm_first.ilike.${nt}%`, `norm_last.ilike.${nt}%`);
+        if (tOld.length >= 3) allConds.push(`norm_first.ilike.${tOld}%`, `norm_last.ilike.${tOld}%`);
       }
-      if (nt.length >= 3)   allConds.push(`norm_first.ilike.${nt}%`, `norm_last.ilike.${nt}%`);
-      if (tOld.length >= 3) allConds.push(`norm_first.ilike.${tOld}%`, `norm_last.ilike.${tOld}%`);
       if (!isNaN(t) && t.trim() !== '') allConds.push(`generation.eq.${t}`);
     });
     
