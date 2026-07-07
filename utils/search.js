@@ -30,7 +30,6 @@ function buildScores(data, tokens) {
 
   const scored = (data || []).map(u => {
     let score = 0;
-    let isMatch = false;
 
     const fn      = (u.first_name || '').trim();
     const ln      = (u.last_name  || '').trim();
@@ -38,21 +37,36 @@ function buildScores(data, tokens) {
     const lnClean = ln.replace(/\s+/g, '');
     const gen     = String(u.generation || '');
 
-    // ── 1. ตรวจสอบตรงๆ กับชื่อต้นฉบับ (แม่นยำสูงสุด) ──
-    const matchRawExact = tokens.every(t => fn.includes(t) || ln.includes(t) || gen === t);
-    
-    // ── 2. ตรวจสอบด้วยเสียง (Phonetic) - ใช้ startsWith ลดขยะ ──
-    const matchPhonetic = tokens.every(t => {
-      const tNorm = normIndex(t);
-      return normIndex(fn).startsWith(tNorm) || normIndex(ln).startsWith(tNorm);
+    // ── 1. นับจำนวน token ที่ตรงกับชื่อต้นฉบับ (Exact Match) ──
+    let exactCount = 0;
+    tokens.forEach(t => {
+      if (fn.includes(t) || ln.includes(t) || gen === t) exactCount++;
     });
 
-    if (matchRawExact) {
-      isMatch = true;
-      score += 10000; // ให้คะแนนมหาศาล เพื่อให้อยู่บนสุดเสมอ
-    } else if (matchPhonetic) {
-      isMatch = true;
-      score += 50; // ให้คะแนนน้อย เพื่อไม่ให้เบียดชื่อจริง
+    // ── 2. ตรวจสอบด้วยเสียง (Phonetic) - ใช้ startsWith ลดขยะ ──
+    // ต้องมีพยัญชนะเหลือ >= 3 ตัวหลังตัดสระ ป้องกันค้นกว้างเกิน
+    let phoneticCount = 0;
+    if (exactCount === 0) {
+      tokens.forEach(t => {
+        const tNorm = normIndex(t);
+        if (tNorm.length >= 3 &&
+            (normIndex(fn).startsWith(tNorm) || normIndex(ln).startsWith(tNorm))) {
+          phoneticCount++;
+        }
+      });
+    }
+
+    const totalMatch = exactCount + phoneticCount;
+    if (totalMatch === 0) return null; // ไม่ตรงเลยสักนิดเดียว → ตัดออก
+
+    // ── 3. คะแนนหลัก: ขึ้นกับสัดส่วนที่ตรง ──
+    const total = tokens.length;
+    if (exactCount === total) {
+      score += 10000;              // ตรงทุก token → อันดับสูงสุด
+    } else if (exactCount > 0) {
+      score += exactCount * 1000;  // ตรงบางส่วน
+    } else {
+      score += phoneticCount * 50; // phonetic fallback
     }
 
     // ── ชั้น 2: คะแนนละเอียดแบบ Prefix / Contains ──
@@ -71,7 +85,6 @@ function buildScores(data, tokens) {
     // คะแนนรุ่น
     if (gen === keywordNoSpace) score += 300;
 
-    if (!isMatch) return null; // ตัดคนที่ไม่เกี่ยวข้องออก
     return { ...u, score };
   }).filter(u => u !== null)
     .sort((a, b) => b.score - a.score);
@@ -80,56 +93,83 @@ function buildScores(data, tokens) {
 }
 
 // =============================================
-// directSearch: ค้นหาตรงจาก DB แบบ 2 รอบ
+// directSearch: ค้นหาตรงจาก DB
 //
-// รอบ 1: ค้นหาในชื่อ/นามสกุล "ต้นฉบับ" ก่อน (แม่นที่สุด)
-//         → ถ้าเจอ → หยุดทันที ไม่ต้องค้นต่อ
-// รอบ 2: ถ้าไม่เจอเลย → fallback ค้นหาด้วย norm
-//         (เผื่อผู้ใช้สะกดผิดหรือชื่อ normalized ไม่ตรง)
+// รอบ 1A (AND):  ทุก token ต้องตรง (ระบบเดิม - แม่นยำที่สุด)
+// รอบ 1B (OR):   Best Match - เฟ้นเมื่อหาไม่เจอใน AND (เฉพาะเมื่อค้นหลายคำ)
+// รอบ 2   (norm): Phonetic fallback - เฟ้นเมื่อหาไม่เจอเลย
 // =============================================
 async function directSearch(rawTokens) {
-  // ── รอบ 1: ค้นหาชื่อ/นามสกุลต้นฉบับ ──
+
+  // ── รอบ 1A: AND Search (ระบบเดิม - ทุก token ต้องตรง) ──
   {
     let query = supabase.from('users').select('*');
     rawTokens.forEach(t => {
       const isNumber = !isNaN(t) && t.trim() !== '';
       if (isNumber) {
-        // ตัวเลข → ค้นเฉพาะรุ่น (ไม่ค้นชื่อ/นามสกุล เพราะจะได้ขยะ)
         query = query.or(`generation.eq.${t}`);
       } else {
-        const conds = [
-          `first_name.ilike.%${t}%`,
-          `last_name.ilike.%${t}%`
-        ];
-        query = query.or(conds.join(','));
+        query = query.or(`first_name.ilike.%${t}%, last_name.ilike.%${t}%`);
       }
     });
 
-    const { data, error } = await query.limit(150); // ลดจาก 300 เพื่อความเร็ว
+    const { data, error } = await query.limit(150);
     if (!error && data && data.length > 0) {
-      console.log('directSearch round1 (raw):', rawTokens.join(','), '→', data.length);
-      return buildScores(data, rawTokens);
+      const scored = buildScores(data, rawTokens);
+      if (scored.length > 0) {
+        console.log('directSearch 1A (AND):', rawTokens.join(','), '→', scored.length);
+        return scored;
+      }
     }
-    if (error) console.warn('directSearch round1 error:', error.message);
+    if (error) console.warn('directSearch 1A error:', error.message);
   }
 
-  // ── รอบ 2: Fallback ค้นหาด้วย norm (เมื่อไม่เจอในรอบ 1) ──
+  // ── รอบ 1B: OR Best Match (เฟ้นเมื่อ AND ไม่เจอ - เฉพาะเมื่อค้นหลายคำ) ──
+  if (rawTokens.length > 1) {
+    let query = supabase.from('users').select('*');
+    const allConds = [];
+    rawTokens.forEach(t => {
+      const isNumber = !isNaN(t) && t.trim() !== '';
+      if (isNumber) {
+        allConds.push(`generation.eq.${t}`);
+      } else {
+        allConds.push(`first_name.ilike.%${t}%`, `last_name.ilike.%${t}%`);
+      }
+    });
+    if (allConds.length > 0) {
+      query = query.or(allConds.join(','));
+      const { data, error } = await query.limit(150);
+      if (!error && data && data.length > 0) {
+        const scored = buildScores(data, rawTokens);
+        if (scored.length > 0) {
+          console.log('directSearch 1B (OR best-match):', rawTokens.join(','), '→', scored.length);
+          return scored;
+        }
+      }
+    }
+  }
+
+  // ── รอบ 2: Fallback ค้นหาด้วย norm (เมื่อไม่เจอในรอบ 1A/1B) ──
   {
     let query = supabase.from('users').select('*');
+    const allConds = [];
     rawTokens.forEach(t => {
       const nt   = normIndex(t);
       const tOld = t.replace(/[ิีึืุูเแโใไัาอ่้๊๋็์]/g, '');
-      const conds = [
-        `norm_first.ilike.${nt}%`,
-        `norm_last.ilike.${nt}%`,
-        `norm_first.ilike.${tOld}%`,
-        `norm_last.ilike.${tOld}%`,
-      ];
-      if (!isNaN(t) && t.trim() !== '') conds.push(`generation.eq.${t}`);
-      query = query.or(conds.join(','));
+      // ข้ามถ้าพยัญชนะที่เหลือสั้นกว่า 3 ตัว (ป้องกันค้นกว้างเกิน เช่น แวอาลี → วล)
+      if (nt.length < 3 && tOld.length < 3) {
+        console.log('Round2 skip (too short):', t, '→ norm:', nt);
+        return;
+      }
+      if (nt.length >= 3)   allConds.push(`norm_first.ilike.${nt}%`, `norm_last.ilike.${nt}%`);
+      if (tOld.length >= 3) allConds.push(`norm_first.ilike.${tOld}%`, `norm_last.ilike.${tOld}%`);
+      if (!isNaN(t) && t.trim() !== '') allConds.push(`generation.eq.${t}`);
     });
+    
+    if (allConds.length === 0) return [];
+    query = query.or(allConds.join(','));
 
-    const { data, error } = await query.limit(150); // ลดจาก 300 เพื่อความเร็ว
+    const { data, error } = await query.limit(150);
     if (error) {
       console.error('directSearch round2 error:', error.message);
       return [];
