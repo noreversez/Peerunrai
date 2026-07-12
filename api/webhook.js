@@ -96,7 +96,7 @@ export default async function handler(req, res) {
 
           // ค้นหาใน Supabase (จำกัด 10 ต่อหน้าเพื่อความเร็ว)
           const page = 1;
-          const { results, total } = await searchUsers(keyword, page, 10);
+          const { results, total, exact } = await searchUsers(keyword, page, 10);
 
           // บันทึก log แบบ async (ไม่ block การตอบกลับ)
           if (userId) logSearch(userId, keyword, total);
@@ -135,7 +135,7 @@ export default async function handler(req, res) {
             }
           } else {
             try {
-              await replyWithFlex(replyToken, keyword, results, total, page, 10, keyword);
+              await replyWithFlex(replyToken, keyword, results, total, page, 10, keyword, exact);
             } catch (flexErr) {
               console.error('replyWithFlex failed, sending fallback text:', flexErr.message);
               await replyWithText(replyToken,
@@ -159,11 +159,11 @@ export default async function handler(req, res) {
           const page = parseInt(data.get('page'), 10) || 1;
 
           if (userId) await showLoadingAnimation(userId);
-          const { results, total } = await searchUsers(keyword, page, 10);
+          const { results, total, exact } = await searchUsers(keyword, page, 10);
           // บันทึก log การเปิดหน้าถัดไปด้วย
           if (userId) logSearch(userId, `${keyword} (หน้า ${page})`, total);
           try {
-            await replyWithFlex(replyToken, keyword, results, total, page, 10, keyword);
+            await replyWithFlex(replyToken, keyword, results, total, page, 10, keyword, exact);
           } catch (flexErr) {
             console.error('Postback replyWithFlex failed:', flexErr.message);
             await replyWithText(replyToken, `⚠️ เกิดข้อผิดพลาดครับ กรุณาลองใหม่อีกครั้ง หรือค้นหาบนเว็บไซต์\nhttps://peerunrai.vercel.app/?q=${encodeURIComponent(keyword)}`);

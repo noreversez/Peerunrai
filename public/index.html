@@ -1079,25 +1079,35 @@
   });
 
   // ── Search ──
+  let searchAbort = null;
   async function doSearch(q, page, append = false) {
     currentQuery = q;
     currentPage  = page;
+
+    // ยกเลิก request เก่าที่ยังไม่เสร็จ กันผลเก่ามาทับผลใหม่ (race condition)
+    if (searchAbort) searchAbort.abort();
+    const ctrl = new AbortController();
+    searchAbort = ctrl;
+
     showLoading(append);
 
     try {
-      const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}`);
+      const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}`, { signal: ctrl.signal });
       const json = await res.json();
+      // ถ้าผู้ใช้พิมพ์คำใหม่ไปแล้วระหว่างรอ ไม่ต้องเอาผลเก่ามาแสดง
+      if (q !== currentQuery || page !== currentPage) return;
       if (!res.ok) { showError(json.error || 'เกิดข้อผิดพลาด'); return; }
       totalResults = json.total;
       renderResults(json, append);
     } catch (e) {
+      if (e.name === 'AbortError') return;
       showError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
     }
   }
 
   // ── Render ──
   let observer = null;
-  function renderResults({ results, total, keyword, page }, append = false) {
+  function renderResults({ results, total, keyword, page, exact }, append = false) {
     if (!append) {
       section.innerHTML = '';
     } else {
@@ -1117,6 +1127,14 @@
 
     const start = 1;
     const end   = Math.min(page * PER_PAGE, total);
+
+    // แบนเนอร์แจ้งเมื่อเป็น "ผลใกล้เคียง" (ไม่มีรายการที่ตรงกับทุกคำค้น)
+    if (!append && exact === false) {
+      const notice = document.createElement('div');
+      notice.style.cssText = 'margin:0 0 12px;padding:10px 14px;border-radius:12px;background:rgba(255,122,0,.12);border:1px solid rgba(255,122,0,.35);color:var(--text-1,#333);font-size:13px;line-height:1.5;';
+      notice.innerHTML = `🤔 ไม่พบรายการที่ตรงกับ <strong>"${esc(keyword)}"</strong> ทั้งหมด — ระบบแสดง<strong>ผลใกล้เคียง</strong>ให้แทน โดยเรียงจากที่ใกล้ที่สุดก่อน`;
+      section.appendChild(notice);
+    }
 
     if (!append) {
       const meta = document.createElement('div');

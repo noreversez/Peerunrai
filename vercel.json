@@ -1,4 +1,5 @@
 {
+  "regions": ["sin1"],
   "functions": {
     "api/webhook.js": { "maxDuration": 30 },
     "api/search.js":  { "maxDuration": 10 }

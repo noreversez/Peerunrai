@@ -3,12 +3,13 @@ import { cacheGet, cacheSet } from './cache.js';
 
 // =============================================
 // normIndex: ตัดสระ + รวมพยัญชนะเสียงเดียวกัน
-// (ตรงกับระบบเก่า gs.txt 100%)
+// (ตรงกับ normalize_thai_name ใน DB 100%)
 // =============================================
 export function normIndex(str) {
   if (!str) return '';
-  const cleanStr = str.replace(/[ิีึืุูเแโใไัาอ]/g, '')
-                      .replace(/[่้๊๋็์]/g, '');
+  const cleanStr = fixHomoglyphs(str)
+    .replace(/[ิีึืุูเแโใไัาอ]/g, '')
+    .replace(/[่้๊๋็์]/g, '');
   return cleanStr
     .replace(/[ศษสซ]/g,      'ส')
     .replace(/[ณน]/g,         'น')
@@ -21,9 +22,96 @@ export function normIndex(str) {
 }
 
 // =============================================
-// buildScores: คิดคะแนนแบบเดียวกับระบบเก่า (gs.txt)
-// ชั้น 1: ตรวจสอบกับชื่อ/นามสกุลต้นฉบับโดยตรง (สูงสุด)
-// ชั้น 2: ตรวจสอบกับชื่อ normalized (fallback เสียง)
+// การเตรียมคำค้น: ตัดยศ + แก้ homoglyph + ตัดอักขระอันตราย
+// =============================================
+const RANK_REGEX = /^(พล\.ต\.อ\.|พล\.ต\.ท\.|พล\.ต\.ต\.|พ\.ต\.อ\.|พ\.ต\.ท\.|พ\.ต\.ต\.|ร\.ต\.อ\.|ร\.ต\.ท\.|ร\.ต\.ต\.|ด\.ต\.|จ\.ส\.ต\.|ส\.ต\.อ\.|ส\.ต\.ท\.|ส\.ต\.ต\.|ว่าที่|นาย|นาง|นางสาว|ผู้กอง|หมวด|สารวัตร|จ่า|หมู่|นต\.)(หญิง)?\s*/g;
+
+// เเ (สระเอ 2 ตัว) → แ, ํ+า → ำ (พบจริงในข้อมูล เช่น "เเวอาลี")
+function fixHomoglyphs(str) {
+  return str.replace(/เเ/g, 'แ').replace(/ํา/g, 'ำ');
+}
+
+function tokenize(keyword) {
+  const clean = fixHomoglyphs(String(keyword || ''))
+    .replace(/[\u200B-\u200D\uFEFF]/g, '') // zero-width chars
+    .replace(RANK_REGEX, '')                     // ตัดยศนำหน้า
+    .replace(/[%_\\,()<>{}[\]"']/g, ' ')         // อักขระที่ทำ query พัง / wildcard
+    .trim();
+  return clean.split(/\s+/).filter(Boolean).slice(0, 5);
+}
+
+// =============================================
+// searchUsers: ค้นหาหลัก — ใช้ RPC search_users_v5
+// (ค้น + ให้คะแนน + เรียง + นับจำนวนจริง ใน DB ครั้งเดียว)
+// คืน { results, total, exact } — exact = false คือผลใกล้เคียง
+// =============================================
+export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
+  const rawTokens = tokenize(keyword);
+  if (rawTokens.length === 0) return { results: [], total: 0, exact: true };
+
+  const cacheKey = `search_v6_${rawTokens.join('|')}_p${page}_n${itemsPerPage}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return cached;
+
+  let result;
+  const { data, error } = await supabase.rpc('search_users_v5', {
+    raw_tokens: rawTokens,
+    p_limit:    itemsPerPage,
+    p_offset:   (page - 1) * itemsPerPage,
+  });
+
+  if (!error && Array.isArray(data)) {
+    result = {
+      results: data.map(r => ({
+        first_name: r.first_name || '',
+        last_name:  r.last_name  || '',
+        generation: r.generation || '',
+        score:      Math.round(r.score || 0),
+      })),
+      total: data.length > 0 ? Number(data[0].total_count) : 0,
+      exact: data.length > 0 ? data[0].is_exact === true : true,
+    };
+  } else {
+    // fallback: ใช้เส้นทางเดิม (กรณี RPC ยังไม่ได้ติดตั้งใน Supabase)
+    if (error) console.warn('search_users_v5 RPC ล้มเหลว → fallback directSearch:', error.message);
+    const all   = await directSearch(rawTokens);
+    const start = (page - 1) * itemsPerPage;
+    result = {
+      results: all.slice(start, start + itemsPerPage),
+      total:   all.length,
+      exact:   all.length > 0 ? all[0].score >= 10000 : true,
+    };
+  }
+
+  cacheSet(cacheKey, result);
+  return result;
+}
+
+// =============================================
+// suggestUsers: ชื่อใกล้เคียงเมื่อหาไม่เจอ (ใช้ผลจาก searchUsers เดิม)
+// =============================================
+export async function suggestUsers(keyword) {
+  const rawTokens = tokenize(keyword);
+  if (rawTokens.length === 0) return [];
+  if (rawTokens.join('').length < 3) return [];
+
+  const { results } = await searchUsers(keyword, 1, 15);
+  const seen = new Set();
+  const out  = [];
+  for (const u of results) {
+    const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+    if (fullName && !seen.has(fullName)) {
+      seen.add(fullName);
+      out.push(fullName);
+      if (out.length >= 5) break;
+    }
+  }
+  return out;
+}
+
+// =============================================
+// ─── เส้นทางสำรอง (fallback) — โค้ดระบบเดิมทั้งชุด ───
+// ใช้เฉพาะเมื่อ RPC search_users_v5 ยังไม่ถูกติดตั้ง
 // =============================================
 function buildScores(data, tokens) {
   const keywordNoSpace = tokens.join('');
@@ -37,48 +125,38 @@ function buildScores(data, tokens) {
     const lnClean = ln.replace(/\s+/g, '');
     const gen     = String(u.generation || '');
 
-    // ── 1. นับจำนวน token ที่ตรงกับชื่อต้นฉบับ (Exact Match) ──
     let exactCount = 0;
     tokens.forEach(t => {
       if (fn.includes(t) || ln.includes(t) || gen === t) exactCount++;
     });
 
-    // ── 2. ตรวจสอบด้วยเสียง (Phonetic) - ใช้ startsWith หรือ === ลดขยะ ──
     let phoneticCount = 0;
     if (exactCount === 0) {
       tokens.forEach(t => {
         const tNorm = normIndex(t);
         if (!tNorm) return;
-        
         if (tNorm.length < 3) {
-          // ถ้าสั้นกว่า 3 ตัวอักษร บังคับให้เสียงต้องตรงเป๊ะ (ป้องกันขยะเยอะ)
-          if (normIndex(fn) === tNorm || normIndex(ln) === tNorm) {
-            phoneticCount++;
-          }
+          if (normIndex(fn) === tNorm || normIndex(ln) === tNorm) phoneticCount++;
         } else {
-          if (normIndex(fn).startsWith(tNorm) || normIndex(ln).startsWith(tNorm)) {
-            phoneticCount++;
-          }
+          if (normIndex(fn).startsWith(tNorm) || normIndex(ln).startsWith(tNorm)) phoneticCount++;
         }
       });
     }
 
     const totalMatch = exactCount + phoneticCount;
-    if (totalMatch === 0) return null; // ไม่ตรงเลยสักนิดเดียว → ตัดออก
+    if (totalMatch === 0) return null;
 
-    // ── 3. คะแนนหลัก: ขึ้นกับสัดส่วนที่ตรง ──
     const total = tokens.length;
     if (exactCount === total) {
-      score += 10000;              // ตรงทุก token → อันดับสูงสุด
+      score += 10000;
     } else if (exactCount > 0) {
-      score += exactCount * 1000;  // ตรงบางส่วน
+      score += exactCount * 1000;
     } else {
-      score += phoneticCount * 50; // phonetic fallback
+      score += phoneticCount * 50;
     }
 
-    // ── ชั้น 2: คะแนนละเอียดแบบ Prefix / Contains ──
     if (fnClean === keywordNoSpace || lnClean === keywordNoSpace) {
-      score += 500; // ตรงเป๊ะ 100%
+      score += 500;
     } else if (fnClean.startsWith(keywordNoSpace)) {
       score += 200;
     } else if (lnClean.startsWith(keywordNoSpace)) {
@@ -89,7 +167,6 @@ function buildScores(data, tokens) {
       score += 90;
     }
 
-    // คะแนนรุ่น
     if (gen === keywordNoSpace) score += 300;
 
     return { ...u, score };
@@ -99,16 +176,8 @@ function buildScores(data, tokens) {
   return scored;
 }
 
-// =============================================
-// directSearch: ค้นหาตรงจาก DB
-//
-// รอบ 1A (AND):  ทุก token ต้องตรง (ระบบเดิม - แม่นยำที่สุด)
-// รอบ 1B (OR):   Best Match - เฟ้นเมื่อหาไม่เจอใน AND (เฉพาะเมื่อค้นหลายคำ)
-// รอบ 2   (norm): Phonetic fallback - เฟ้นเมื่อหาไม่เจอเลย
-// =============================================
 async function directSearch(rawTokens) {
-
-  // ── รอบ 1A: AND Search (ระบบเดิม - ทุก token ต้องตรง) ──
+  // ── รอบ 1A: AND Search (ทุก token ต้องตรง) ──
   {
     let query = supabase.from('users').select('*');
     rawTokens.forEach(t => {
@@ -123,15 +192,12 @@ async function directSearch(rawTokens) {
     const { data, error } = await query.limit(150);
     if (!error && data && data.length > 0) {
       const scored = buildScores(data, rawTokens);
-      if (scored.length > 0) {
-        console.log('directSearch 1A (AND):', rawTokens.join(','), '→', scored.length);
-        return scored;
-      }
+      if (scored.length > 0) return scored;
     }
     if (error) console.warn('directSearch 1A error:', error.message);
   }
 
-  // ── รอบ 1B: OR Best Match (เฟ้นเมื่อ AND ไม่เจอ - เฉพาะเมื่อค้นหลายคำ) ──
+  // ── รอบ 1B: OR Best Match ──
   if (rawTokens.length > 1) {
     let query = supabase.from('users').select('*');
     const allConds = [];
@@ -148,22 +214,18 @@ async function directSearch(rawTokens) {
       const { data, error } = await query.limit(150);
       if (!error && data && data.length > 0) {
         const scored = buildScores(data, rawTokens);
-        if (scored.length > 0) {
-          console.log('directSearch 1B (OR best-match):', rawTokens.join(','), '→', scored.length);
-          return scored;
-        }
+        if (scored.length > 0) return scored;
       }
     }
   }
 
-  // ── รอบ 2: Fallback ค้นหาด้วย norm (เมื่อไม่เจอในรอบ 1A/1B) ──
+  // ── รอบ 2: Phonetic fallback ──
   {
     let query = supabase.from('users').select('*');
     const allConds = [];
     rawTokens.forEach(t => {
       const nt   = normIndex(t);
       const tOld = t.replace(/[ิีึืุูเแโใไัาอ่้๊๋็์]/g, '');
-      // ── คำสั้นให้ใช้ .eq. (ตรงเป๊ะ) / คำยาวให้ใช้ .ilike.% ──
       if (nt.length < 3 && tOld.length < 3) {
         if (nt) allConds.push(`norm_first.eq.${nt}`, `norm_last.eq.${nt}`);
         if (tOld) allConds.push(`norm_first.eq.${tOld}`, `norm_last.eq.${tOld}`);
@@ -173,7 +235,7 @@ async function directSearch(rawTokens) {
       }
       if (!isNaN(t) && t.trim() !== '') allConds.push(`generation.eq.${t}`);
     });
-    
+
     if (allConds.length === 0) return [];
     query = query.or(allConds.join(','));
 
@@ -182,66 +244,6 @@ async function directSearch(rawTokens) {
       console.error('directSearch round2 error:', error.message);
       return [];
     }
-    console.log('directSearch round2 (norm fallback):', rawTokens.join(','), '→', (data || []).length);
     return buildScores(data || [], rawTokens);
   }
-}
-
-// =============================================
-// searchUsers: ค้นหาหลัก (directSearch 2 รอบ)
-// =============================================
-export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
-  const rankRegex = /^(พล\.ต\.อ\.|พล\.ต\.ท\.|พล\.ต\.ต\.|พ\.ต\.อ\.|พ\.ต\.ท\.|พ\.ต\.ต\.|ร\.ต\.อ\.|ร\.ต\.ท\.|ร\.ต\.ต\.|ด\.ต\.|จ\.ส\.ต\.|ส\.ต\.อ\.|ส\.ต\.ท\.|ส\.ต\.ต\.|ว่าที่|นาย|นาง|นางสาว|ผู้กอง|หมวด|สารวัตร|จ่า|หมู่|นต\.)(หญิง)?\s*/g;
-  const cleanKeyword = keyword.replace(rankRegex, '').trim();
-  if (!cleanKeyword) return { results: [], total: 0 };
-
-  const rawTokens = cleanKeyword.split(/\s+/).filter(t => t);
-  if (rawTokens.length === 0) return { results: [], total: 0 };
-
-  const cacheKey = `search_v5_${rawTokens.join('_')}_p${page}_n${itemsPerPage}`;
-  const cached = cacheGet(cacheKey);
-  if (cached) return cached;
-
-  let data = await directSearch(rawTokens);
-  console.log('directSearch:', rawTokens.join(','), '→', data.length, 'results');
-
-  if (data.length === 0) return { results: [], total: 0 };
-
-  const totalFound     = data.length;
-  const startIndex     = (page - 1) * itemsPerPage;
-  const limitedResults = data.slice(startIndex, startIndex + itemsPerPage);
-
-  const result = { results: limitedResults, total: totalFound };
-  cacheSet(cacheKey, result);
-  return result;
-}
-
-// =============================================
-// suggestUsers: ค้นหาชื่อใกล้เคียงเมื่อหาไม่เจอ
-// =============================================
-export async function suggestUsers(keyword) {
-  const rankRegex = /^(พล\.ต\.อ\.|พล\.ต\.ท\.|พล\.ต\.ต\.|พ\.ต\.อ\.|พ\.ต\.ท\.|พ\.ต\.ต\.|ร\.ต\.อ\.|ร\.ต\.ท\.|ร\.ต\.ต\.|ด\.ต\.|จ\.ส\.ต\.|ส\.ต\.อ\.|ส\.ต\.ท\.|ส\.ต\.ต\.|ว่าที่|นาย|นาง|นางสาว|ผู้กอง|หมวด|สารวัตร|จ่า|หมู่|นต\.)(หญิง)?\s*/g;
-  const cleanKeyword = keyword.replace(rankRegex, '').trim();
-  const rawTokens    = cleanKeyword.split(/\s+/).filter(t => t);
-  if (rawTokens.length === 0) return [];
-
-  // ป้องกัน Timeout: คำสั้นกว่า 3 ตัวอักษร ข้ามการ suggest
-  if (rawTokens.join('').length < 3) return [];
-
-  // ใช้ directSearch ตรงๆ (แม่นยำกว่า RPC)
-  const pool = await directSearch(rawTokens);
-
-  if (pool.length === 0) return [];
-
-  const seen = new Set();
-  const result = [];
-  for (const u of pool) {
-    const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
-    if (fullName && !seen.has(fullName)) {
-      seen.add(fullName);
-      result.push(fullName);
-      if (result.length >= 5) break;
-    }
-  }
-  return result;
 }

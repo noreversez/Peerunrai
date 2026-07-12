@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   }
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
-  const { results, total } = await searchUsers(q.trim(), pageNum, 20);
+  const { results, total, exact } = await searchUsers(q.trim(), pageNum, 20);
 
   return res.status(200).json({
     results: results.map(u => ({
@@ -24,6 +24,7 @@ export default async function handler(req, res) {
       score:      u.score      || 0,
     })),
     total,
+    exact:     exact !== false, // false = ผลใกล้เคียง (ไม่มีรายการที่ตรงครบทุกคำ)
     page:      pageNum,
     per_page:  20,
     keyword:   q.trim(),

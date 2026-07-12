@@ -40,7 +40,7 @@ export async function replyWithText(replyToken, messageText, quickReplyItems = n
   }
 }
 
-export async function replyWithFlex(replyToken, keyword, results, totalFound, page = 1, itemsPerPage = 30, cleanKey = "") {
+export async function replyWithFlex(replyToken, keyword, results, totalFound, page = 1, itemsPerPage = 30, cleanKey = "", isExact = true) {
   const url = 'https://api.line.me/v2/bot/message/reply';
   const bubbles = [];
   const itemsPerBubble = 10;
@@ -71,10 +71,10 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
               },
               {
                 "type": "text",
-                "text": "ผลการค้นหา",
+                "text": isExact ? "ผลการค้นหา" : "ผลใกล้เคียง (ไม่พบที่ตรงทั้งหมด)",
                 "size": "sm",
                 "weight": "bold",
-                "color": "#0F4C81"
+                "color": isExact ? "#0F4C81" : "#D97706"
               }
             ]
           },
@@ -348,7 +348,7 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
 
   let messages = [{
     "type": "flex",
-    "altText": `ผลการค้นหา: ${keyword} (${totalFound} รายการ)`,
+    "altText": `${isExact ? 'ผลการค้นหา' : 'ผลใกล้เคียง'}: ${keyword} (${totalFound} รายการ)`,
     "contents": {
       "type": "carousel",
       "contents": bubbles
