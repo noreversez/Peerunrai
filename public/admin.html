@@ -531,6 +531,68 @@
     }
     .sql-notice code { background: rgba(0,0,0,.35); padding: 2px 6px; border-radius: 5px; font-size: 12.5px; }
 
+    /* ── User Management ── */
+    .u-toolbar {
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px;
+    }
+    .u-search {
+      flex: 1; min-width: 180px;
+      padding: 10px 14px; font-size: 14px; font-family: 'Sarabun', sans-serif;
+      border: 1.5px solid var(--border); border-radius: 10px;
+      background: var(--bg-3); color: var(--text-1); outline: none;
+    }
+    .u-search:focus { border-color: var(--accent); }
+    .u-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); cursor: pointer; user-select: none; }
+    .u-row {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px;
+    }
+    .u-row.archived { opacity: .55; }
+    .u-gen {
+      flex-shrink: 0; min-width: 46px; text-align: center;
+      background: var(--bg-3); border-radius: 8px; padding: 6px 8px;
+      font-size: 12px; color: var(--text-2);
+    }
+    .u-gen strong { display: block; font-size: 15px; color: var(--accent); }
+    .u-name { flex: 1; font-size: 14.5px; font-weight: 600; }
+    .u-name small { display:block; font-weight: 400; font-size: 11px; color: var(--text-3); margin-top: 2px; }
+    .u-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .u-btn {
+      padding: 6px 12px; font-size: 12px; font-family: 'Sarabun', sans-serif;
+      border-radius: 8px; border: 1px solid var(--border); background: transparent;
+      color: var(--text-2); cursor: pointer; transition: background .15s, color .15s, border-color .15s;
+    }
+    .u-btn:hover { background: var(--bg-3); color: var(--text-1); }
+    .u-btn.edit:hover { border-color: var(--accent); color: var(--accent); }
+    .u-btn.danger:hover { border-color: var(--red); color: var(--red); }
+    .u-btn.good:hover { border-color: var(--green); color: var(--green); }
+    .archived-badge { font-size: 10px; font-weight: 700; padding: 1px 8px; border-radius: 20px; background: #3f2020; color: #fca5a5; margin-left: 6px; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.6);
+      display: none; align-items: center; justify-content: center; z-index: 500; padding: 20px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-box {
+      background: var(--bg-2); border: 1px solid var(--border); border-radius: 16px;
+      padding: 24px; width: 100%; max-width: 440px; box-shadow: var(--shadow);
+    }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+    .btn-ghost {
+      padding: 10px 18px; border-radius: 10px; border: 1px solid var(--border);
+      background: transparent; color: var(--text-2); font-size: 14px;
+      font-family: 'Sarabun', sans-serif; cursor: pointer;
+    }
+    .btn-ghost:hover { background: var(--bg-3); color: var(--text-1); }
+    .dup-group {
+      background: var(--bg-2); border: 1px solid #7f1d1d; border-radius: var(--radius);
+      padding: 14px 16px; margin-bottom: 10px;
+    }
+    .dup-head { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+
     /* ── Toast ── */
     #toast {
       position: fixed;
@@ -586,6 +648,9 @@
       ⚠️ รายการแจ้งปัญหา
       <span class="tab-count" id="reportCount">0</span>
     </button>
+    <button class="tab-btn" data-tab="users">
+      👤 จัดการรายชื่อ นรต.
+    </button>
     <button class="tab-btn" data-tab="changelog">
       📋 รายการอัปเดท
       <span class="tab-count" id="changelogCount">0</span>
@@ -616,6 +681,28 @@
         <button class="filter-btn" data-filter="resolved">✅ เสร็จสิ้น</button>
       </div>
       <div id="reportsList"><div class="spinner"></div></div>
+    </div>
+
+    <!-- ── Panel: User Management ── -->
+    <div class="tab-panel" id="panel-users">
+      <div class="section-head">
+        <div>
+          <div class="section-title">จัดการรายชื่อ นรต.</div>
+          <div class="section-sub">ค้นหา แก้ไข เพิ่ม หรือเก็บถาวรรายชื่อ — ระบบคำนวณดัชนีค้นหา (norm) ให้อัตโนมัติ</div>
+        </div>
+        <button class="add-btn" id="userAddBtn" style="font-size:13px;padding:8px 14px;">➕ เพิ่ม นรต.</button>
+      </div>
+
+      <div class="u-toolbar">
+        <input class="u-search" id="userSearch" placeholder="พิมพ์ชื่อ นามสกุล หรือรุ่น..." />
+        <label class="u-check"><input type="checkbox" id="showArchived" /> แสดงที่เก็บถาวร</label>
+        <button class="u-btn danger" id="findDupBtn">🔍 หาชื่อซ้ำ</button>
+        <button class="u-btn" id="auditBtn">📜 ประวัติการแก้ไข</button>
+      </div>
+
+      <div id="usersList">
+        <div class="empty-state"><div class="empty-icon">👤</div><p>พิมพ์เพื่อค้นหารายชื่อ นรต. ที่ต้องการจัดการ</p></div>
+      </div>
     </div>
 
     <!-- ── Panel: Changelog ── -->
@@ -703,6 +790,30 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- ── Modal: Add / Edit นรต. ── -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal-box">
+    <div class="modal-title" id="userModalTitle">เพิ่ม นรต.</div>
+    <input type="hidden" id="uEditId" />
+    <div style="margin-bottom:12px">
+      <label class="af-label">ชื่อ</label>
+      <input class="af-input" id="uFirst" placeholder="เช่น สมชาย" />
+    </div>
+    <div style="margin-bottom:12px">
+      <label class="af-label">นามสกุล</label>
+      <input class="af-input" id="uLast" placeholder="เช่น ใจดี" />
+    </div>
+    <div>
+      <label class="af-label">รุ่น</label>
+      <input class="af-input" id="uGen" placeholder="เช่น 79" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="uCancel">ยกเลิก</button>
+      <button class="add-btn" id="uSave">💾 บันทึก</button>
+    </div>
   </div>
 </div>
 
@@ -1093,6 +1204,199 @@
     html += `</div>`;
 
     document.getElementById('analyticsBody').innerHTML = html;
+  }
+
+  // ── User Management (จัดการรายชื่อ นรต.) ──
+  const userSearchEl = document.getElementById('userSearch');
+  const showArchivedEl = document.getElementById('showArchived');
+  let userDebounce = null;
+
+  userSearchEl.addEventListener('input', () => {
+    clearTimeout(userDebounce);
+    userDebounce = setTimeout(loadUsers, 300);
+  });
+  showArchivedEl.addEventListener('change', loadUsers);
+  document.getElementById('userAddBtn').addEventListener('click', () => openUserModal());
+  document.getElementById('findDupBtn').addEventListener('click', loadDuplicates);
+  document.getElementById('auditBtn').addEventListener('click', loadAuditLog);
+  document.getElementById('uCancel').addEventListener('click', closeUserModal);
+  document.getElementById('userModal').addEventListener('click', e => { if (e.target.id === 'userModal') closeUserModal(); });
+  document.getElementById('uSave').addEventListener('click', saveUser);
+
+  async function loadUsers() {
+    const q = userSearchEl.value.trim();
+    const archived = showArchivedEl.checked ? '1' : '0';
+    const list = document.getElementById('usersList');
+    if (!q) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">👤</div><p>พิมพ์เพื่อค้นหารายชื่อ นรต. ที่ต้องการจัดการ</p></div>';
+      return;
+    }
+    list.innerHTML = '<div class="spinner"></div>';
+    try {
+      const r = await apiFetch(`/api/admin?action=users-search&q=${encodeURIComponent(q)}&archived=${archived}`);
+      const json = await r.json();
+      if (!r.ok) {
+        if (json.needsSql) return showUsersSqlNotice(list);
+        list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>${esc(json.error||'ผิดพลาด')}</p></div>`;
+        return;
+      }
+      renderUsers(json.data || []);
+    } catch (e) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>โหลดข้อมูลไม่สำเร็จ</p></div>';
+    }
+  }
+
+  function showUsersSqlNotice(list) {
+    list.innerHTML = `
+      <div class="sql-notice">
+        ⚠️ ยังใช้ระบบจัดการรายชื่อไม่ได้ — ต้องอัปเดตฐานข้อมูลก่อน<br/><br/>
+        เปิด <strong>Supabase → SQL Editor</strong> แล้วรัน (1) <code>supabase_search_v5.sql</code> อีกครั้ง
+        และ (2) <code>supabase_admin_users.sql</code> จากนั้นกดค้นหาใหม่
+      </div>`;
+  }
+
+  function renderUsers(data) {
+    const list = document.getElementById('usersList');
+    if (!data.length) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><p>ไม่พบรายชื่อที่ตรงกัน</p></div>';
+      return;
+    }
+    list.innerHTML = data.map(u => {
+      const active = u.is_active !== false;
+      return `
+      <div class="u-row ${active ? '' : 'archived'}" id="u-${u.id}">
+        <div class="u-gen">รุ่น<strong>${esc(u.generation || '-')}</strong></div>
+        <div class="u-name">
+          ${esc(u.first_name)} ${esc(u.last_name)}
+          ${active ? '' : '<span class="archived-badge">เก็บถาวร</span>'}
+        </div>
+        <div class="u-actions">
+          <button class="u-btn edit" onclick='openUserModal(${JSON.stringify(u)})'>✏️ แก้ไข</button>
+          ${active
+            ? `<button class="u-btn danger" onclick="archiveUser('${u.id}', false)">🗑 เก็บถาวร</button>`
+            : `<button class="u-btn good" onclick="archiveUser('${u.id}', true)">♻️ กู้คืน</button>`}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function openUserModal(u) {
+    document.getElementById('uEditId').value = u?.id || '';
+    document.getElementById('uFirst').value = u?.first_name || '';
+    document.getElementById('uLast').value = u?.last_name || '';
+    document.getElementById('uGen').value = u?.generation || '';
+    document.getElementById('userModalTitle').textContent = u?.id ? 'แก้ไข นรต.' : 'เพิ่ม นรต. ใหม่';
+    document.getElementById('userModal').classList.add('show');
+    setTimeout(() => document.getElementById('uFirst').focus(), 50);
+  }
+  function closeUserModal() { document.getElementById('userModal').classList.remove('show'); }
+
+  async function saveUser() {
+    const id = document.getElementById('uEditId').value;
+    const payload = {
+      first_name: document.getElementById('uFirst').value.trim(),
+      last_name:  document.getElementById('uLast').value.trim(),
+      generation: document.getElementById('uGen').value.trim(),
+    };
+    if (!payload.first_name || !payload.last_name || !payload.generation) {
+      showToast('❌ กรุณากรอกชื่อ นามสกุล และรุ่นให้ครบ'); return;
+    }
+    const btn = document.getElementById('uSave');
+    btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
+    try {
+      const r = id
+        ? await apiFetch('/api/admin?action=user-update', { method: 'PATCH', body: JSON.stringify({ id, ...payload }) })
+        : await apiFetch('/api/admin?action=user-create', { method: 'POST', body: JSON.stringify(payload) });
+      const json = await r.json();
+      if (r.ok) {
+        showToast(id ? '✅ แก้ไขเรียบร้อย' : '✅ เพิ่มรายชื่อเรียบร้อย');
+        closeUserModal();
+        if (userSearchEl.value.trim()) loadUsers();
+        else { userSearchEl.value = payload.last_name; loadUsers(); }
+      } else {
+        showToast('❌ ' + (json.error || 'บันทึกไม่สำเร็จ'));
+      }
+    } catch (e) {
+      showToast('❌ เชื่อมต่อไม่สำเร็จ');
+    } finally {
+      btn.disabled = false; btn.textContent = '💾 บันทึก';
+    }
+  }
+
+  async function archiveUser(id, active) {
+    if (!active && !confirm('เก็บถาวรรายชื่อนี้? จะไม่แสดงในผลค้นหา (กู้คืนได้ภายหลัง)')) return;
+    const r = await apiFetch('/api/admin?action=user-archive', {
+      method: 'PATCH', body: JSON.stringify({ id, active })
+    });
+    const json = await r.json();
+    if (r.ok) {
+      showToast(active ? '♻️ กู้คืนแล้ว' : '🗑 เก็บถาวรแล้ว');
+      loadUsers();
+    } else {
+      showToast('❌ ' + (json.error || 'ไม่สำเร็จ'));
+    }
+  }
+
+  async function loadDuplicates() {
+    const list = document.getElementById('usersList');
+    list.innerHTML = '<div class="spinner"></div>';
+    try {
+      const r = await apiFetch('/api/admin?action=users-duplicates');
+      const json = await r.json();
+      if (!r.ok) { if (json.needsSql) return showUsersSqlNotice(list); throw new Error(json.error); }
+      const dups = json.data || [];
+      if (!dups.length) {
+        list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎉</div><p>ไม่พบชื่อซ้ำ (ชื่อ+สกุล+รุ่น ตรงกัน)</p></div>';
+        return;
+      }
+      list.innerHTML = `<div class="section-sub" style="margin-bottom:12px">พบชื่อซ้ำ ${dups.length} กลุ่ม — เก็บถาวรตัวที่เกินเพื่อไม่ให้แสดงซ้ำในผลค้นหา</div>` +
+        dups.map(d => `
+        <div class="dup-group">
+          <div class="dup-head">${esc(d.first_name)} ${esc(d.last_name)} · รุ่น ${esc(d.generation)} <span class="archived-badge" style="background:#78350f;color:#fde68a">ซ้ำ ${d.cnt} รายการ</span></div>
+          ${(d.ids || []).map((id, i) => `
+            <div class="u-row" id="u-${id}" style="margin-bottom:6px">
+              <div class="u-name" style="font-size:13px">${i === 0 ? '⭐ เก็บไว้ (ตัวหลัก)' : 'รายการซ้ำ #' + (i+1)}<small>${id}</small></div>
+              <div class="u-actions">
+                ${i === 0 ? '' : `<button class="u-btn danger" onclick="archiveUser('${id}', false)">🗑 เก็บถาวร</button>`}
+              </div>
+            </div>`).join('')}
+        </div>`).join('');
+    } catch (e) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>โหลดข้อมูลไม่สำเร็จ</p></div>`;
+    }
+  }
+
+  async function loadAuditLog() {
+    const list = document.getElementById('usersList');
+    list.innerHTML = '<div class="spinner"></div>';
+    const ACTION_LABELS = { create: '➕ เพิ่ม', update: '✏️ แก้ไข', archive: '🗑 เก็บถาวร', restore: '♻️ กู้คืน', merge: '🔗 รวม' };
+    try {
+      const r = await apiFetch('/api/admin?action=audit-log');
+      const json = await r.json();
+      if (!r.ok) { if (json.needsSql) return showUsersSqlNotice(list); throw new Error(json.error); }
+      const logs = json.data || [];
+      if (!logs.length) {
+        list.innerHTML = '<div class="empty-state"><div class="empty-icon">📜</div><p>ยังไม่มีประวัติการแก้ไข</p></div>';
+        return;
+      }
+      list.innerHTML = `<div class="section-sub" style="margin-bottom:12px">ประวัติการแก้ไขล่าสุด (100 รายการ)</div>` +
+        logs.map(l => {
+          const when = new Date(l.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', hour12: false });
+          const d = l.detail || {};
+          let extra = '';
+          if (d.after) extra = `${esc(d.after.first_name || '')} ${esc(d.after.last_name || '')} รุ่น ${esc(d.after.generation || '')}`;
+          else if (d.before) extra = `${esc(d.before.first_name || '')} ${esc(d.before.last_name || '')}`;
+          return `
+          <div class="u-row" style="margin-bottom:6px">
+            <div class="u-name" style="font-size:13px">
+              ${ACTION_LABELS[l.action] || esc(l.action)} ${extra ? '· ' + extra : ''}
+              <small>${esc(when)} · IP ${esc(l.ip || '-')}</small>
+            </div>
+          </div>`;
+        }).join('');
+    } catch (e) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>โหลดข้อมูลไม่สำเร็จ</p></div>`;
+    }
   }
 
   // ── Pageviews ──

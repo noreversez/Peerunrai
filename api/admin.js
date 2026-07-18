@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import { rateLimit, getClientIp } from '../utils/ratelimit.js';
+import { normIndex, fixHomoglyphs } from '../utils/search.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -63,6 +64,85 @@ export default async function handler(req, res) {
       // RPC ยังไม่ถูกติดตั้ง → บอก frontend ให้ขึ้นคำแนะนำรัน SQL
       return res.status(500).json({ error: error.message, needsSql: true });
     }
+    return res.status(200).json({ data });
+  }
+
+  // ══════════════════════════════════════════════════
+  //  จัดการรายชื่อ นรต. (ตาราง users)
+  // ══════════════════════════════════════════════════
+
+  // ── GET: ค้นหา นรต. สำหรับหน้าจัดการ (ต่างจาก /api/search: ตรงไปตรงมา + เห็นที่เก็บถาวรได้) ──
+  if (req.method === 'GET' && action === 'users-search') {
+    const q = String(req.query.q || '').trim();
+    const showArchived = req.query.archived === '1';
+    let query = supabase
+      .from('users')
+      .select('id, first_name, last_name, generation, is_active, created_at')
+      .order('generation', { ascending: true })
+      .limit(100);
+    if (!showArchived) query = query.eq('is_active', true);
+    if (q) {
+      const safe = q.replace(/[%,()]/g, ' ').trim();
+      const isNum = /^[0-9]+$/.test(safe);
+      if (isNum) query = query.eq('generation', safe);
+      else query = query.or(`first_name.ilike.%${safe}%,last_name.ilike.%${safe}%`);
+    }
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message, needsSql: /is_active/.test(error.message) });
+    return res.status(200).json({ data });
+  }
+
+  // ── POST: เพิ่ม นรต. ใหม่ ──
+  if (req.method === 'POST' && action === 'user-create') {
+    const v = cleanUserInput(req.body);
+    if (v.error) return res.status(400).json({ error: v.error });
+    const { data, error } = await supabase.from('users').insert(v.row).select('id').single();
+    if (error) return res.status(500).json({ error: error.message });
+    await writeAudit(supabase, 'create', data.id, { after: v.row }, req);
+    return res.status(200).json({ ok: true, id: data.id });
+  }
+
+  // ── PATCH: แก้ไข นรต. (คำนวณ norm ใหม่ให้อัตโนมัติ) ──
+  if (req.method === 'PATCH' && action === 'user-update') {
+    const { id } = req.body || {};
+    if (!id) return res.status(400).json({ error: 'ไม่พบ id' });
+    const v = cleanUserInput(req.body);
+    if (v.error) return res.status(400).json({ error: v.error });
+
+    const { data: before } = await supabase
+      .from('users').select('first_name, last_name, generation').eq('id', id).single();
+
+    const { error } = await supabase.from('users').update(v.row).eq('id', id);
+    if (error) return res.status(500).json({ error: error.message });
+    await writeAudit(supabase, 'update', id, { before, after: v.row }, req);
+    return res.status(200).json({ ok: true });
+  }
+
+  // ── PATCH: เก็บถาวร / กู้คืน (soft delete) ──
+  if (req.method === 'PATCH' && action === 'user-archive') {
+    const { id, active } = req.body || {};
+    if (!id || typeof active !== 'boolean') return res.status(400).json({ error: 'ต้องระบุ id และ active (true/false)' });
+    const { error } = await supabase.from('users').update({ is_active: active }).eq('id', id);
+    if (error) return res.status(500).json({ error: error.message, needsSql: /is_active/.test(error.message) });
+    await writeAudit(supabase, active ? 'restore' : 'archive', id, {}, req);
+    return res.status(200).json({ ok: true });
+  }
+
+  // ── GET: หาชื่อซ้ำ (ชื่อ+สกุล+รุ่น ตรงกัน) ──
+  if (req.method === 'GET' && action === 'users-duplicates') {
+    const { data, error } = await supabase.rpc('find_duplicate_users');
+    if (error) return res.status(500).json({ error: error.message, needsSql: true });
+    return res.status(200).json({ data });
+  }
+
+  // ── GET: ประวัติการแก้ไขของ Admin (audit log) ──
+  if (req.method === 'GET' && action === 'audit-log') {
+    const { data, error } = await supabase
+      .from('admin_audit')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) return res.status(500).json({ error: error.message, needsSql: true });
     return res.status(200).json({ data });
   }
 
@@ -143,4 +223,42 @@ export default async function handler(req, res) {
   }
 
   return res.status(404).json({ error: 'Unknown action' });
+}
+
+// ตรวจ + ทำความสะอาด input ของ นรต. แล้วคำนวณ norm ให้พร้อมบันทึก
+function cleanUserInput(body) {
+  const first = fixHomoglyphs(String(body?.first_name || '').trim().replace(/\s+/g, ' '));
+  const last  = fixHomoglyphs(String(body?.last_name  || '').trim().replace(/\s+/g, ' '));
+  const gen   = String(body?.generation || '').trim();
+
+  if (!first)  return { error: 'กรุณากรอกชื่อ' };
+  if (!last)   return { error: 'กรุณากรอกนามสกุล' };
+  if (!gen)    return { error: 'กรุณากรอกรุ่น' };
+  if (first.length > 100 || last.length > 100 || gen.length > 20) {
+    return { error: 'ข้อมูลยาวเกินไป' };
+  }
+
+  return {
+    row: {
+      first_name: first,
+      last_name:  last,
+      generation: gen,
+      norm_first: normIndex(first),
+      norm_last:  normIndex(last),
+    },
+  };
+}
+
+// บันทึก audit log แบบ best-effort (ถ้าตาราง admin_audit ยังไม่มี จะไม่ทำให้งานหลักล้ม)
+async function writeAudit(supabase, actionName, targetId, detail, req) {
+  try {
+    await supabase.from('admin_audit').insert({
+      action:    actionName,
+      target_id: targetId,
+      detail:    detail || {},
+      ip:        getClientIp(req),
+    });
+  } catch (e) {
+    console.warn('writeAudit ล้มเหลว (ข้ามได้):', e?.message);
+  }
 }

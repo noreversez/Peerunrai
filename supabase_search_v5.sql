@@ -7,6 +7,10 @@
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
+-- ── 0) คอลัมน์ is_active สำหรับ soft-delete (เก็บถาวร/กู้คืนได้)
+--       คนที่ is_active = false จะไม่โผล่ในผลค้นหา
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
+
 -- ── 1) ฟังก์ชัน normalize (กฎเดียวกับ normIndex ใน JavaScript 100%)
 --       เพิ่มการแก้ homoglyph ก่อน: เเ (สระเอ 2 ตัว) → แ, ํ+า → ำ
 CREATE OR REPLACE FUNCTION normalize_thai_name(str text)
@@ -219,7 +223,7 @@ BEGIN
               (%s)::real AS score,
               ((%s) >= %s) AS is_exact
        FROM public.users u
-       WHERE %s
+       WHERE u.is_active AND (%s)
      ),
      f AS (SELECT COALESCE(bool_or(s.is_exact), false) AS has_exact FROM scored s)
      SELECT s.first_name, s.last_name, s.generation, s.score, s.is_exact,

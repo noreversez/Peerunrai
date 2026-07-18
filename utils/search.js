@@ -27,8 +27,8 @@ export function normIndex(str) {
 const RANK_REGEX = /^(พล\.ต\.อ\.|พล\.ต\.ท\.|พล\.ต\.ต\.|พ\.ต\.อ\.|พ\.ต\.ท\.|พ\.ต\.ต\.|ร\.ต\.อ\.|ร\.ต\.ท\.|ร\.ต\.ต\.|ด\.ต\.|จ\.ส\.ต\.|ส\.ต\.อ\.|ส\.ต\.ท\.|ส\.ต\.ต\.|ว่าที่|นาย|นาง|นางสาว|ผู้กอง|หมวด|สารวัตร|จ่า|หมู่|นต\.)(หญิง)?\s*/g;
 
 // เเ (สระเอ 2 ตัว) → แ, ํ+า → ำ (พบจริงในข้อมูล เช่น "เเวอาลี")
-function fixHomoglyphs(str) {
-  return str.replace(/เเ/g, 'แ').replace(/ํา/g, 'ำ');
+export function fixHomoglyphs(str) {
+  return String(str || '').replace(/เเ/g, 'แ').replace(/ํา/g, 'ำ');
 }
 
 function tokenize(keyword) {
