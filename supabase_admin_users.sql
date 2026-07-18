@@ -35,7 +35,7 @@ STABLE
 AS $$
   SELECT first_name, last_name, generation,
          count(*)::int AS cnt,
-         array_agg(id ORDER BY created_at) AS ids
+         array_agg(id ORDER BY id) AS ids
   FROM public.users
   WHERE is_active
   GROUP BY first_name, last_name, generation

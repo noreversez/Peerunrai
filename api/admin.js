@@ -77,7 +77,7 @@ export default async function handler(req, res) {
     const showArchived = req.query.archived === '1';
     let query = supabase
       .from('users')
-      .select('id, first_name, last_name, generation, is_active, created_at')
+      .select('id, first_name, last_name, generation, is_active')
       .order('generation', { ascending: true })
       .limit(100);
     if (!showArchived) query = query.eq('is_active', true);
