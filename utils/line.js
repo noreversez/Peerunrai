@@ -1,6 +1,31 @@
 import axios from 'axios';
+import crypto from 'crypto';
 
-const LINE_ACCESS_TOKEN = process.env.LINE_ACCESS_TOKEN || '';
+const LINE_ACCESS_TOKEN  = process.env.LINE_ACCESS_TOKEN  || '';
+const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || '';
+
+// อ่าน raw body จาก stream (ต้องปิด bodyParser ที่ฝั่ง webhook)
+export async function getRawBody(req) {
+  if (typeof req.body === 'string') return req.body;
+  if (req.body && Buffer.isBuffer(req.body)) return req.body.toString('utf8');
+  const chunks = [];
+  for await (const chunk of req) chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+// ตรวจลายเซ็น x-line-signature ว่ามาจาก LINE จริง (HMAC-SHA256 ด้วย Channel Secret)
+// - ถ้าไม่ได้ตั้ง env LINE_CHANNEL_SECRET → คืน null (ข้ามการตรวจ เพื่อไม่ให้บอทล่ม)
+// - ถ้าตั้งแล้ว → คืน true/false ตามผลการตรวจ
+export function verifyLineSignature(rawBody, signature) {
+  if (!LINE_CHANNEL_SECRET) return null;
+  if (!signature) return false;
+  const expected = crypto.createHmac('sha256', LINE_CHANNEL_SECRET)
+    .update(rawBody || '', 'utf8')
+    .digest('base64');
+  const a = Buffer.from(expected);
+  const b = Buffer.from(String(signature));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 
 export async function showLoadingAnimation(userId) {
   const url = 'https://api.line.me/v2/bot/chat/loading/start';

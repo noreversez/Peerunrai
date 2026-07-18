@@ -1,4 +1,5 @@
 import { searchUsers } from '../utils/search.js';
+import { rateLimit, getClientIp } from '../utils/ratelimit.js';
 
 export default async function handler(req, res) {
   // CORS สำหรับ frontend
@@ -8,9 +9,21 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
+  // กัน scraping / ยิงถล่ม: จำกัด 40 ครั้ง/นาที ต่อ IP
+  const ip = getClientIp(req);
+  const rl = rateLimit(`search:${ip}`, 40, 60_000);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter));
+    return res.status(429).json({ error: 'ค้นหาถี่เกินไป กรุณารอสักครู่แล้วลองใหม่' });
+  }
+
   const { q, page = '1' } = req.query;
   if (!q || q.trim().length === 0) {
     return res.status(400).json({ error: 'กรุณาระบุคำค้นหา' });
+  }
+  // จำกัดความยาวคำค้น กัน payload ผิดปกติ
+  if (q.length > 100) {
+    return res.status(400).json({ error: 'คำค้นหายาวเกินไป' });
   }
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);

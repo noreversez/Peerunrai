@@ -442,6 +442,95 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── Search Analytics ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 720px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+    }
+    .stat-label { font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+    .stat-value { font-size: 26px; font-weight: 700; color: var(--text-1); line-height: 1.1; }
+    .stat-sub   { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+    .stat-card.danger  .stat-value { color: var(--red); }
+    .stat-card.good    .stat-value { color: var(--green); }
+    .stat-card.accent  .stat-value { color: var(--accent); }
+
+    .analytics-block {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+    .analytics-block.highlight { border-color: #7f1d1d; }
+    .block-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .block-sub { font-size: 12px; color: var(--text-3); margin-bottom: 14px; }
+    .kw-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .kw-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 30px;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text-1);
+      text-decoration: none;
+      transition: border-color .15s, background .15s;
+    }
+    .kw-chip:hover { border-color: var(--accent); background: #262a3d; }
+    .kw-chip.fail:hover { border-color: var(--red); }
+    .kw-count {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 8px;
+      border-radius: 20px;
+      background: var(--bg);
+      color: var(--text-2);
+    }
+    .kw-chip.fail .kw-count { background: #3f2020; color: #fca5a5; }
+    .day-select {
+      padding: 7px 12px;
+      font-size: 13px;
+      font-family: 'Sarabun', sans-serif;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      color: var(--text-1);
+      outline: none;
+      cursor: pointer;
+    }
+    .recent-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .recent-table th {
+      text-align: left; padding: 10px 12px; color: var(--text-2);
+      font-weight: 600; border-bottom: 1px solid var(--border); font-size: 12px;
+    }
+    .recent-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-1); }
+    .recent-table tr:last-child td { border-bottom: none; }
+    .pill-zero { color: var(--red); font-weight: 600; }
+    .pill-hit  { color: var(--green); font-weight: 600; }
+    .sql-notice {
+      background: #422006; border: 1px solid #78350f; color: #fde68a;
+      border-radius: var(--radius); padding: 16px 18px; font-size: 13.5px; line-height: 1.6;
+    }
+    .sql-notice code { background: rgba(0,0,0,.35); padding: 2px 6px; border-radius: 5px; font-size: 12.5px; }
+
     /* ── Toast ── */
     #toast {
       position: fixed;
@@ -500,6 +589,9 @@
     <button class="tab-btn" data-tab="changelog">
       📋 รายการอัปเดท
       <span class="tab-count" id="changelogCount">0</span>
+    </button>
+    <button class="tab-btn" data-tab="search">
+      🔍 สถิติการค้นหา
     </button>
     <button class="tab-btn" data-tab="pageviews">
       📊 สถิติผู้เข้าชม
@@ -564,6 +656,26 @@
       </div>
 
       <div id="changelogList"><div class="spinner"></div></div>
+    </div>
+
+    <!-- ── Panel: Search Analytics ── -->
+    <div class="tab-panel" id="panel-search">
+      <div class="section-head">
+        <div>
+          <div class="section-title">สถิติการค้นหา</div>
+          <div class="section-sub">ดูว่าผู้ใช้ค้นหาอะไร และคำไหนที่ค้นแล้ว "ไม่พบ" — ใช้ปรับปรุงข้อมูล/ความแม่นยำ</div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select class="day-select" id="analyticsDays">
+            <option value="1">วันนี้</option>
+            <option value="7" selected>7 วัน</option>
+            <option value="30">30 วัน</option>
+            <option value="90">90 วัน</option>
+          </select>
+          <button class="add-btn" id="refreshAnalytics" style="font-size:13px;padding:8px 14px;">🔄 รีเฟรช</button>
+        </div>
+      </div>
+      <div id="analyticsBody"><div class="spinner"></div></div>
     </div>
 
     <!-- ── Panel: Pageviews ── -->
@@ -657,12 +769,18 @@
   });
 
   // ── Tabs ──
+  let analyticsLoaded = false;
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+      // โหลดสถิติการค้นหาแบบ lazy ครั้งแรกที่เปิดแท็บ
+      if (btn.dataset.tab === 'search' && !analyticsLoaded) {
+        analyticsLoaded = true;
+        loadSearchAnalytics();
+      }
     });
   });
 
@@ -846,6 +964,135 @@
     } else {
       showToast('❌ ลบรายการไม่สำเร็จ');
     }
+  }
+
+  // ── Search Analytics ──
+  document.getElementById('refreshAnalytics').addEventListener('click', loadSearchAnalytics);
+  document.getElementById('analyticsDays').addEventListener('change', loadSearchAnalytics);
+
+  const SITE_URL = 'https://peerunrai.vercel.app';
+
+  async function loadSearchAnalytics() {
+    const body = document.getElementById('analyticsBody');
+    body.innerHTML = '<div class="spinner"></div>';
+    const days = document.getElementById('analyticsDays').value || '7';
+    try {
+      const r = await apiFetch('/api/admin?action=search-analytics&days=' + days);
+      const json = await r.json();
+      if (!r.ok) {
+        if (json.needsSql) {
+          body.innerHTML = `
+            <div class="sql-notice">
+              ⚠️ ยังใช้งานสถิติการค้นหาไม่ได้ — ต้องติดตั้งฟังก์ชันในฐานข้อมูลก่อน<br/><br/>
+              เปิด <strong>Supabase → SQL Editor</strong> แล้วรันไฟล์
+              <code>supabase_search_analytics.sql</code> (ทั้งไฟล์) หนึ่งครั้ง จากนั้นกดรีเฟรช
+            </div>`;
+        } else {
+          body.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>โหลดข้อมูลไม่สำเร็จ: ${esc(json.error || '')}</p></div>`;
+        }
+        return;
+      }
+      renderAnalytics(json.data || {});
+    } catch (e) {
+      body.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>โหลดข้อมูลไม่สำเร็จ</p></div>';
+    }
+  }
+
+  function renderAnalytics(d) {
+    const s = d.summary || {};
+    const top = d.top || [];
+    const failed = d.failed || [];
+    const recent = d.recent || [];
+    const total = Number(s.total_searches || 0);
+    const zero = Number(s.zero_results || 0);
+    const zeroRate = total > 0 ? Math.round((zero / total) * 100) : 0;
+
+    const num = n => Number(n || 0).toLocaleString('th');
+
+    // สรุปภาพรวม
+    let html = `
+      <div class="stat-grid">
+        <div class="stat-card accent">
+          <div class="stat-label">การค้นหาทั้งหมด</div>
+          <div class="stat-value">${num(total)}</div>
+          <div class="stat-sub">ในช่วงที่เลือก</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">ผู้ใช้ (ไม่ซ้ำ)</div>
+          <div class="stat-value">${num(s.unique_users)}</div>
+          <div class="stat-sub">คนที่ค้นหา</div>
+        </div>
+        <div class="stat-card danger">
+          <div class="stat-label">ค้นแล้วไม่พบ</div>
+          <div class="stat-value">${num(zero)}</div>
+          <div class="stat-sub">${zeroRate}% ของการค้นหา</div>
+        </div>
+        <div class="stat-card good">
+          <div class="stat-label">ค้นหาวันนี้</div>
+          <div class="stat-value">${num(s.today_searches)}</div>
+          <div class="stat-sub">เขตเวลาไทย</div>
+        </div>
+      </div>`;
+
+    // คำที่ค้นแล้วไม่พบ (ไฮไลต์ — ขุมทรัพย์ปรับปรุงข้อมูล)
+    html += `
+      <div class="analytics-block highlight">
+        <div class="block-title">🚨 คำที่ค้นแล้ว "ไม่พบ" บ่อยสุด</div>
+        <div class="block-sub">คำเหล่านี้อาจเป็นชื่อที่หายจากฐานข้อมูล สะกดต่างจากในระบบ หรือรูปแบบที่ระบบยังไม่รองรับ — กดที่คำเพื่อลองค้นบนเว็บไซต์</div>`;
+    if (failed.length === 0) {
+      html += `<p style="color:var(--text-3);font-size:13px;">🎉 ไม่มีคำที่ค้นแล้วไม่พบในช่วงนี้</p>`;
+    } else {
+      html += `<div class="kw-list">` + failed.map(f => `
+        <a class="kw-chip fail" href="${SITE_URL}/?q=${encodeURIComponent(f.keyword)}" target="_blank" rel="noopener">
+          ${esc(f.keyword)} <span class="kw-count">${num(f.cnt)}×</span>
+        </a>`).join('') + `</div>`;
+    }
+    html += `</div>`;
+
+    // คำยอดนิยม
+    html += `
+      <div class="analytics-block">
+        <div class="block-title">🔥 คำค้นยอดนิยม</div>
+        <div class="block-sub">คำที่ค้นแล้วเจอผลลัพธ์ เรียงตามจำนวนครั้ง</div>`;
+    if (top.length === 0) {
+      html += `<p style="color:var(--text-3);font-size:13px;">ยังไม่มีข้อมูล</p>`;
+    } else {
+      html += `<div class="kw-list">` + top.map(t => `
+        <a class="kw-chip" href="${SITE_URL}/?q=${encodeURIComponent(t.keyword)}" target="_blank" rel="noopener">
+          ${esc(t.keyword)} <span class="kw-count">${num(t.cnt)}×</span>
+        </a>`).join('') + `</div>`;
+    }
+    html += `</div>`;
+
+    // รายการล่าสุด
+    html += `
+      <div class="analytics-block">
+        <div class="block-title">🕐 การค้นหาล่าสุด</div>
+        <div class="block-sub">60 รายการล่าสุด</div>`;
+    if (recent.length === 0) {
+      html += `<p style="color:var(--text-3);font-size:13px;">ยังไม่มีข้อมูล</p>`;
+    } else {
+      html += `
+        <div style="overflow-x:auto;">
+        <table class="recent-table">
+          <thead><tr><th>คำค้นหา</th><th>ผลลัพธ์</th><th>เวลา</th><th>ผู้ใช้</th></tr></thead>
+          <tbody>` + recent.map(r => {
+            const cnt = Number(r.results_count || 0);
+            const when = new Date(r.searched_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', hour12: false });
+            return `<tr>
+              <td>${esc(r.keyword)}</td>
+              <td class="${cnt > 0 ? 'pill-hit' : 'pill-zero'}">${cnt > 0 ? 'พบ ' + num(cnt) : 'ไม่พบ'}</td>
+              <td style="color:var(--text-2);white-space:nowrap;">${esc(when)}</td>
+              <td style="color:var(--text-3);">…${esc(r.uid_tail || '')}</td>
+            </tr>`;
+          }).join('') + `
+          </tbody>
+        </table>
+        </div>`;
+    }
+    html += `</div>`;
+
+    document.getElementById('analyticsBody').innerHTML = html;
   }
 
   // ── Pageviews ──

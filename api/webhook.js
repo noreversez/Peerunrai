@@ -1,7 +1,10 @@
 import { supabase } from '../utils/supabase.js';
-import { replyWithText, replyWithFlex, showLoadingAnimation } from '../utils/line.js';
+import { replyWithText, replyWithFlex, showLoadingAnimation, getRawBody, verifyLineSignature } from '../utils/line.js';
 import { searchUsers, suggestUsers } from '../utils/search.js';
 import { logSearch, getRecentSearches } from '../utils/logger.js';
+
+// ปิด body parser ของ Vercel เพื่ออ่าน raw body มาตรวจลายเซ็นได้ถูกต้อง
+export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
   // รองรับเฉพาะ POST method จาก LINE
@@ -10,7 +13,23 @@ export default async function handler(req, res) {
   }
 
   try {
-    const events = req.body.events;
+    // อ่าน raw body + ตรวจลายเซ็นว่ามาจาก LINE จริง (กันคนปลอม event เข้ามา)
+    const rawBody = await getRawBody(req);
+    const sigCheck = verifyLineSignature(rawBody, req.headers['x-line-signature']);
+    if (sigCheck === false) {
+      console.warn('ปฏิเสธ webhook: ลายเซ็นไม่ถูกต้อง');
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+    // sigCheck === null แปลว่ายังไม่ได้ตั้ง LINE_CHANNEL_SECRET (ข้ามการตรวจชั่วคราว)
+
+    let body;
+    try {
+      body = JSON.parse(rawBody || '{}');
+    } catch {
+      return res.status(400).json({ error: 'Invalid JSON' });
+    }
+
+    const events = body.events;
     if (!events || events.length === 0) {
       return res.status(200).json({ success: true });
     }
