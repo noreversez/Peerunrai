@@ -13,20 +13,35 @@ export default async function handler(req, res) {
   }
 
   try {
-    // อ่าน raw body + ตรวจลายเซ็นว่ามาจาก LINE จริง (กันคนปลอม event เข้ามา)
+    // อ่าน raw body (กรณี bodyParser ถูกปิดสำเร็จ) — ใช้ตรวจลายเซ็น
     const rawBody = await getRawBody(req);
-    const sigCheck = verifyLineSignature(rawBody, req.headers['x-line-signature']);
-    if (sigCheck === false) {
-      console.warn('ปฏิเสธ webhook: ลายเซ็นไม่ถูกต้อง');
-      return res.status(401).json({ error: 'Invalid signature' });
-    }
-    // sigCheck === null แปลว่ายังไม่ได้ตั้ง LINE_CHANNEL_SECRET (ข้ามการตรวจชั่วคราว)
+    const hasRaw  = typeof rawBody === 'string' && rawBody.length > 0;
 
+    // แยกร่างข้อมูล: ถ้า Vercel เผลอ parse ไปแล้ว (เป็น object) ให้ใช้ตัวนั้น
+    // เพื่อให้บอทไม่มีวันพังแม้ปิด bodyParser ไม่สำเร็จ
     let body;
-    try {
-      body = JSON.parse(rawBody || '{}');
-    } catch {
-      return res.status(400).json({ error: 'Invalid JSON' });
+    if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
+      body = req.body;
+    } else if (hasRaw) {
+      try { body = JSON.parse(rawBody); }
+      catch { return res.status(400).json({ error: 'Invalid JSON' }); }
+    } else {
+      body = {};
+    }
+
+    // ตรวจลายเซ็น x-line-signature (กันคนปลอม event เข้ามา)
+    // บังคับตรวจเฉพาะเมื่อ (1) ตั้ง LINE_CHANNEL_SECRET แล้ว และ (2) อ่าน raw body ได้จริง
+    // ถ้าอ่าน raw ไม่ได้ (แพลตฟอร์มไม่เคารพ bodyParser:false) จะข้ามการตรวจ + เตือนใน log
+    // เพื่อไม่ให้บอทล่ม — ดู log ยืนยันว่าการตรวจทำงานหลังตั้ง secret
+    if (verifyLineSignature.enabled) {
+      if (hasRaw) {
+        if (!verifyLineSignature(rawBody, req.headers['x-line-signature'])) {
+          console.warn('ปฏิเสธ webhook: ลายเซ็นไม่ถูกต้อง');
+          return res.status(401).json({ error: 'Invalid signature' });
+        }
+      } else {
+        console.warn('ข้ามการตรวจลายเซ็น: อ่าน raw body ไม่ได้ (bodyParser:false อาจไม่มีผลบนแพลตฟอร์มนี้)');
+      }
     }
 
     const events = body.events;

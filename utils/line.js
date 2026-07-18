@@ -14,10 +14,8 @@ export async function getRawBody(req) {
 }
 
 // ตรวจลายเซ็น x-line-signature ว่ามาจาก LINE จริง (HMAC-SHA256 ด้วย Channel Secret)
-// - ถ้าไม่ได้ตั้ง env LINE_CHANNEL_SECRET → คืน null (ข้ามการตรวจ เพื่อไม่ให้บอทล่ม)
-// - ถ้าตั้งแล้ว → คืน true/false ตามผลการตรวจ
+// คืน true/false ตามผลการตรวจ — เรียกใช้เฉพาะเมื่อ verifyLineSignature.enabled === true
 export function verifyLineSignature(rawBody, signature) {
-  if (!LINE_CHANNEL_SECRET) return null;
   if (!signature) return false;
   const expected = crypto.createHmac('sha256', LINE_CHANNEL_SECRET)
     .update(rawBody || '', 'utf8')
@@ -26,6 +24,8 @@ export function verifyLineSignature(rawBody, signature) {
   const b = Buffer.from(String(signature));
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
+// เปิดตรวจลายเซ็นก็ต่อเมื่อมีการตั้ง Channel Secret ไว้แล้วเท่านั้น
+verifyLineSignature.enabled = !!LINE_CHANNEL_SECRET;
 
 export async function showLoadingAnimation(userId) {
   const url = 'https://api.line.me/v2/bot/chat/loading/start';
