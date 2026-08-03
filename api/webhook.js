@@ -130,10 +130,23 @@ export default async function handler(req, res) {
 
           // ค้นหาใน Supabase (จำกัด 10 ต่อหน้าเพื่อความเร็ว)
           const page = 1;
-          const { results, total, exact } = await searchUsers(keyword, page, 10);
+          const { results, total, exact, generationOnly } = await searchUsers(keyword, page, 10);
 
           // บันทึก log แบบ async (ไม่ block การตอบกลับ)
           if (userId) logSearch(userId, keyword, total);
+
+          // ค้นด้วยเลขรุ่นล้วน ๆ (ไม่มีชื่อ) — ไม่แสดงรายชื่อ บอกแค่จำนวนรวม กันดัมพ์ทั้งรุ่น
+          if (generationOnly) {
+            if (total === 0) {
+              await replyWithText(replyToken, `❌ ไม่พบข้อมูลรุ่น "${keyword}" ในระบบครับ`);
+            } else {
+              await replyWithText(replyToken,
+                `🎓 รุ่น ${keyword} มีทั้งหมด ${total.toLocaleString('th-TH')} คนครับ\n\n` +
+                `กรุณาพิมพ์ชื่อหรือนามสกุลเพิ่มเติมเพื่อดูรายชื่อ เช่น "สมชาย ${keyword}"`
+              );
+            }
+            continue;
+          }
 
           let hintMsg = "";
           if (isSingleShortToken && total > 0) {
@@ -154,7 +167,7 @@ export default async function handler(req, res) {
               }));
               await replyWithText(
                 replyToken,
-                `❌ ไม่พบ "${keyword}" ในฐานข้อมูลครับ\n\n🤔 หรือคุณหมายถึง...\n${suggestions.map((n, i) => `${i + 1}. ${n}`).join('\n')}\n\nกดเลือกชื่อด้านล่างได้เลยครับ 👇\n\n🌐 หรือลองค้นหาในเว็บไซต์อีกครั้งเพื่อความแม่นยำ`,
+                `❌ ไม่พบ "${keyword}" ในฐานข้อมูลครับ\n\n🤔 หรือคุณหมายถึง...\n${suggestions.map((n, i) => `${i + 1}. ${n}`).join('\n')}\n\nกดเลือกชื่อด้านล่างได้เลยครับ 👇\n\n📝 หรืออาจมีการเปลี่ยนชื่อ-นามสกุลไปแล้วครับ\n🌐 หรือลองค้นหาในเว็บไซต์อีกครั้งเพื่อความแม่นยำ`,
                 quickReplyItems
               );
             } else {
@@ -163,7 +176,8 @@ export default async function handler(req, res) {
                 `💡 ลองใหม่ด้วย:\n` +
                 `• ระบุนามสกุลแทนชื่อ\n` +
                 `• พิมพ์ "ชื่อ นามสกุล" เว้นวรรคคั่น\n` +
-                `• พิมพ์ "ชื่อ รุ่น" เช่น "สมชาย 79"\n\n` +
+                `• พิมพ์ "ชื่อ รุ่น" เช่น "สมชาย 79"\n` +
+                `• อาจมีการเปลี่ยนชื่อ-นามสกุลไปแล้ว ลองค้นด้วยชื่อเดิม\n\n` +
                 `🌐 หรือลองค้นหาในเว็บไซต์อีกครั้งเพื่อความแม่นยำ`
               );
             }
@@ -193,9 +207,14 @@ export default async function handler(req, res) {
           const page = parseInt(data.get('page'), 10) || 1;
 
           if (userId) await showLoadingAnimation(userId);
-          const { results, total, exact } = await searchUsers(keyword, page, 10);
+          const { results, total, exact, generationOnly } = await searchUsers(keyword, page, 10);
           // บันทึก log การเปิดหน้าถัดไปด้วย
           if (userId) logSearch(userId, `${keyword} (หน้า ${page})`, total);
+          // ป้องกัน postback ที่ถูกปลอมมาเป็นเลขรุ่นล้วน ๆ (ปกติปุ่มนี้ไม่ถูกสร้างในโหมดนี้อยู่แล้ว)
+          if (generationOnly) {
+            await replyWithText(replyToken, `🎓 รุ่น ${keyword} มีทั้งหมด ${total.toLocaleString('th-TH')} คนครับ กรุณาพิมพ์ชื่อหรือนามสกุลเพิ่มเติมเพื่อดูรายชื่อ`);
+            continue;
+          }
           try {
             await replyWithFlex(replyToken, keyword, results, total, page, 10, keyword, exact);
           } catch (flexErr) {

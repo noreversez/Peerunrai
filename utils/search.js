@@ -43,11 +43,18 @@ function tokenize(keyword) {
 // =============================================
 // searchUsers: ค้นหาหลัก — ใช้ RPC search_users_v5
 // (ค้น + ให้คะแนน + เรียง + นับจำนวนจริง ใน DB ครั้งเดียว)
-// คืน { results, total, exact } — exact = false คือผลใกล้เคียง
+// คืน { results, total, exact, generationOnly } — exact = false คือผลใกล้เคียง
+// generationOnly = true คือค้นด้วยเลขรุ่นล้วน ๆ (ไม่มีชื่อ) → ไม่แสดงรายชื่อ
+// บอกแค่จำนวนรวม กันดัมพ์รายชื่อทั้งรุ่นออกมา
 // =============================================
 export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
   const rawTokens = tokenize(keyword);
   if (rawTokens.length === 0) return { results: [], total: 0, exact: true };
+
+  // ── ค้นด้วยเลขรุ่นล้วน ๆ (ไม่มีชื่อประกอบ) → ปิดการแสดงรายชื่อ เหลือแค่จำนวนรวม ──
+  if (rawTokens.every(t => /^[0-9]+$/.test(t))) {
+    return await countByGeneration(rawTokens);
+  }
 
   const cacheKey = `search_v6_${rawTokens.join('|')}_p${page}_n${itemsPerPage}`;
   const cached = cacheGet(cacheKey);
@@ -83,6 +90,30 @@ export async function searchUsers(keyword, page = 1, itemsPerPage = 30) {
     };
   }
 
+  cacheSet(cacheKey, result);
+  return result;
+}
+
+// =============================================
+// countByGeneration: นับจำนวน นรต. ในรุ่นที่ระบุ โดยไม่ดึงรายชื่อออกมา
+// (ใช้เมื่อค้นด้วยเลขรุ่นล้วน ๆ — กันดัมพ์รายชื่อทั้งรุ่น)
+// =============================================
+async function countByGeneration(genTokens) {
+  const cacheKey = `gencount_${genTokens.join('|')}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return cached;
+
+  let total = 0;
+  let query = supabase.from('users').select('id', { count: 'exact', head: true }).in('generation', genTokens);
+  let { count, error } = await query.eq('is_active', true);
+  if (error) {
+    // fallback: คอลัมน์ is_active ยังไม่ถูกสร้าง (ยังไม่รัน SQL อัปเดต)
+    ({ count, error } = await supabase.from('users').select('id', { count: 'exact', head: true }).in('generation', genTokens));
+  }
+  if (!error) total = count || 0;
+  else console.warn('countByGeneration error:', error.message);
+
+  const result = { results: [], total, exact: true, generationOnly: true };
   cacheSet(cacheKey, result);
   return result;
 }

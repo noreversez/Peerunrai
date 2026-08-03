@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   }
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
-  const { results, total, exact } = await searchUsers(q.trim(), pageNum, 20);
+  const { results, total, exact, generationOnly } = await searchUsers(q.trim(), pageNum, 20);
 
   return res.status(200).json({
     results: results.map(u => ({
@@ -37,7 +37,8 @@ export default async function handler(req, res) {
       score:      u.score      || 0,
     })),
     total,
-    exact:     exact !== false, // false = ผลใกล้เคียง (ไม่มีรายการที่ตรงครบทุกคำ)
+    exact:          exact !== false, // false = ผลใกล้เคียง (ไม่มีรายการที่ตรงครบทุกคำ)
+    generationOnly: generationOnly === true, // true = ค้นด้วยเลขรุ่นล้วน ๆ ไม่แสดงรายชื่อ
     page:      pageNum,
     per_page:  20,
     keyword:   q.trim(),

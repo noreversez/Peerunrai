@@ -1107,7 +1107,7 @@
 
   // ── Render ──
   let observer = null;
-  function renderResults({ results, total, keyword, page, exact }, append = false) {
+  function renderResults({ results, total, keyword, page, exact, generationOnly }, append = false) {
     if (!append) {
       section.innerHTML = '';
     } else {
@@ -1115,12 +1115,32 @@
       if (oldSentinel) oldSentinel.remove();
     }
 
+    // ค้นด้วยเลขรุ่นล้วน ๆ (ไม่มีชื่อ) — ไม่แสดงรายชื่อ บอกแค่จำนวนรวม กันดัมพ์ทั้งรุ่น
+    if (generationOnly) {
+      if (total === 0) {
+        section.innerHTML = `
+          <div class="state-box">
+            <div class="state-icon">😕</div>
+            <p>ไม่พบข้อมูลรุ่น <strong>"${esc(keyword)}"</strong> ในระบบ</p>
+          </div>`;
+      } else {
+        section.innerHTML = `
+          <div class="state-box">
+            <div class="state-icon">🎓</div>
+            <p>รุ่น <strong>${esc(keyword)}</strong> มีทั้งหมด <strong>${total.toLocaleString('th')}</strong> คน<br/>
+            กรุณาระบุชื่อหรือนามสกุลเพิ่มเติมเพื่อดูรายชื่อ เช่น "สมชาย ${esc(keyword)}"</p>
+          </div>`;
+      }
+      return;
+    }
+
     if (total === 0) {
       section.innerHTML = `
         <div class="state-box">
           <div class="state-icon">😕</div>
           <p>ไม่พบข้อมูลที่ตรงกับ <strong>"${esc(keyword)}"</strong><br/>
-          ลองค้นหาด้วยนามสกุล หรือเพิ่มรุ่น เช่น "${esc(keyword)} 79"</p>
+          ลองค้นหาด้วยนามสกุล หรือเพิ่มรุ่น เช่น "${esc(keyword)} 79"<br/>
+          <span style="color:var(--text-3);font-size:12.5px;">หรืออาจมีการเปลี่ยนชื่อ-นามสกุลไปแล้ว ลองพิมพ์ชื่อเดิม หรือแจ้งผ่านปุ่ม "แจ้งปัญหา" ด้านล่าง</span></p>
         </div>`;
       return;
     }
