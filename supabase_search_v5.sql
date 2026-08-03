@@ -100,7 +100,9 @@ DECLARE
   target_gen  int  := NULL;
   kw_ns       text := '';
   kw_len      int;
-  where_parts text[] := ARRAY[]::text[];
+  where_parts      text[] := ARRAY[]::text[];
+  name_where_parts text[] := ARRAY[]::text[]; -- เงื่อนไขจากคำที่เป็นชื่อ (OR กันเอง)
+  gen_where_parts  text[] := ARRAY[]::text[]; -- เงื่อนไขจากคำที่เป็นเลขรุ่น (OR กันเอง)
   exact_expr  text := '0';  -- จำนวน token ที่ตรงตัวจริง (ชื่อหรือรุ่น)
   name_expr   text := '0';  -- จำนวน token ที่ตรงชื่อ/นามสกุล
   gen_expr    text := '0';  -- จำนวน token ที่ตรงเลขรุ่น
@@ -130,10 +132,12 @@ BEGIN
 
     -- token ที่เป็นตัวเลข = เลขรุ่น
     IF t ~ '^[0-9]+$' THEN
-      target_gen  := t::int;
-      where_parts := where_parts || format('u.generation = %L', t);
-      exact_expr  := exact_expr || format(' + CASE WHEN u.generation = %L THEN 1 ELSE 0 END', t);
-      gen_expr    := gen_expr   || format(' + CASE WHEN u.generation = %L THEN 1 ELSE 0 END', t);
+      target_gen      := t::int;
+      -- เลขรุ่นใช้เป็นคะแนน/โบนัสความใกล้เคียงเท่านั้น ไม่ใช่เงื่อนไขดึงข้อมูล
+      -- (กันไม่ให้ "ชื่อ 79" ดึงคนทั้งรุ่น 79 ออกมาทั้งที่ชื่อไม่ตรงเลย)
+      gen_where_parts := gen_where_parts || format('u.generation = %L', t);
+      exact_expr       := exact_expr || format(' + CASE WHEN u.generation = %L THEN 1 ELSE 0 END', t);
+      gen_expr         := gen_expr   || format(' + CASE WHEN u.generation = %L THEN 1 ELSE 0 END', t);
       CONTINUE;
     END IF;
 
@@ -141,11 +145,11 @@ BEGIN
     nt    := normalize_thai_name(t);
 
     -- ตรงตัวจริงกับชื่อ/นามสกุล
-    name_cond   := format('(u.first_name ILIKE %L OR u.last_name ILIKE %L)',
+    name_cond        := format('(u.first_name ILIKE %L OR u.last_name ILIKE %L)',
                           '%' || t || '%', '%' || t || '%');
-    where_parts := where_parts || name_cond;
-    exact_expr  := exact_expr || ' + CASE WHEN ' || name_cond || ' THEN 1 ELSE 0 END';
-    name_expr   := name_expr  || ' + CASE WHEN ' || name_cond || ' THEN 1 ELSE 0 END';
+    name_where_parts := name_where_parts || name_cond;
+    exact_expr        := exact_expr || ' + CASE WHEN ' || name_cond || ' THEN 1 ELSE 0 END';
+    name_expr         := name_expr  || ' + CASE WHEN ' || name_cond || ' THEN 1 ELSE 0 END';
 
     -- ตรงด้วยเสียง (phonetic): คำสั้น (<3) ต้องตรงเป๊ะ / คำยาวใช้ prefix
     phon_cond := NULL;
@@ -166,14 +170,23 @@ BEGIN
       END IF;
     END IF;
     IF array_length(pp, 1) IS NOT NULL THEN
-      phon_cond   := '(' || array_to_string(pp, ' OR ') || ')';
-      where_parts := where_parts || phon_cond;
-      phon_expr   := phon_expr || ' + CASE WHEN NOT ' || name_cond
+      phon_cond        := '(' || array_to_string(pp, ' OR ') || ')';
+      name_where_parts := name_where_parts || phon_cond;
+      phon_expr        := phon_expr || ' + CASE WHEN NOT ' || name_cond
                      || ' AND ' || phon_cond || ' THEN 1 ELSE 0 END';
-      sim_parts   := sim_parts || format(
+      sim_parts        := sim_parts || format(
         'GREATEST(similarity(u.first_name, %L), similarity(u.last_name, %L))', t, t);
     END IF;
   END LOOP;
+
+  -- ตัดสินเงื่อนไข WHERE สุดท้าย: ถ้ามีคำที่เป็นชื่อ ต้องตรงเงื่อนไขชื่ออย่างน้อยหนึ่งคำเสมอ
+  -- (เลขรุ่นเป็นแค่ตัวให้คะแนน ไม่ใช่ทางเลือกที่ทำให้ดึงคนทั้งรุ่นออกมาได้)
+  -- ใช้ gen_where_parts แทนก็ต่อเมื่อค้นด้วยเลขรุ่นล้วน ๆ (ไม่มีคำชื่อเลย)
+  IF array_length(name_where_parts, 1) IS NOT NULL THEN
+    where_parts := name_where_parts;
+  ELSE
+    where_parts := gen_where_parts;
+  END IF;
 
   IF n_tokens = 0 OR array_length(where_parts, 1) IS NULL THEN
     RETURN;
@@ -242,5 +255,6 @@ $$;
 -- ── 6) ทดสอบหลังติดตั้ง (ดูผลได้เลยใน SQL Editor)
 -- SELECT * FROM search_users_v5(ARRAY['สมชาย'], 5, 0);
 -- SELECT * FROM search_users_v5(ARRAY['สมชาย','79'], 5, 0);
+--   ↳ ทุกแถวที่ได้ต้องชื่อ/สกุลมีคำว่า "สมชาย" เกี่ยวข้องเสมอ (ห้ามมีคนรุ่น 79 ที่ไม่ชื่อสมชายหลุดมา)
 -- SELECT * FROM search_users_v5(ARRAY['แวอาลี'], 5, 0);
 -- SELECT * FROM search_users_v5(ARRAY['79'], 5, 0);

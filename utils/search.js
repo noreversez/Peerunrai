@@ -229,17 +229,21 @@ async function directSearch(rawTokens) {
   }
 
   // ── รอบ 1B: OR Best Match ──
+  // เลขรุ่นใช้แค่ให้คะแนนใน buildScores เท่านั้น ต้องตรงเงื่อนไขชื่ออย่างน้อยหนึ่งคำเสมอ
+  // (กันไม่ให้ "ชื่อ 79" ดึงคนทั้งรุ่น 79 ออกมาทั้งที่ชื่อไม่ตรงเลย)
   if (rawTokens.length > 1) {
     let query = supabase.from('users').select('*');
-    const allConds = [];
+    const nameConds = [];
+    const genConds = [];
     rawTokens.forEach(t => {
       const isNumber = !isNaN(t) && t.trim() !== '';
       if (isNumber) {
-        allConds.push(`generation.eq.${t}`);
+        genConds.push(`generation.eq.${t}`);
       } else {
-        allConds.push(`first_name.ilike.%${t}%`, `last_name.ilike.%${t}%`);
+        nameConds.push(`first_name.ilike.%${t}%`, `last_name.ilike.%${t}%`);
       }
     });
+    const allConds = nameConds.length > 0 ? nameConds : genConds;
     if (allConds.length > 0) {
       query = query.or(allConds.join(','));
       const { data, error } = await query.limit(150);
@@ -253,20 +257,22 @@ async function directSearch(rawTokens) {
   // ── รอบ 2: Phonetic fallback ──
   {
     let query = supabase.from('users').select('*');
-    const allConds = [];
+    const nameConds = [];
+    const genConds = [];
     rawTokens.forEach(t => {
       const nt   = normIndex(t);
       const tOld = t.replace(/[ิีึืุูเแโใไัาอ่้๊๋็์]/g, '');
       if (nt.length < 3 && tOld.length < 3) {
-        if (nt) allConds.push(`norm_first.eq.${nt}`, `norm_last.eq.${nt}`);
-        if (tOld) allConds.push(`norm_first.eq.${tOld}`, `norm_last.eq.${tOld}`);
+        if (nt) nameConds.push(`norm_first.eq.${nt}`, `norm_last.eq.${nt}`);
+        if (tOld) nameConds.push(`norm_first.eq.${tOld}`, `norm_last.eq.${tOld}`);
       } else {
-        if (nt.length >= 3)   allConds.push(`norm_first.ilike.${nt}%`, `norm_last.ilike.${nt}%`);
-        if (tOld.length >= 3) allConds.push(`norm_first.ilike.${tOld}%`, `norm_last.ilike.${tOld}%`);
+        if (nt.length >= 3)   nameConds.push(`norm_first.ilike.${nt}%`, `norm_last.ilike.${nt}%`);
+        if (tOld.length >= 3) nameConds.push(`norm_first.ilike.${tOld}%`, `norm_last.ilike.${tOld}%`);
       }
-      if (!isNaN(t) && t.trim() !== '') allConds.push(`generation.eq.${t}`);
+      if (!isNaN(t) && t.trim() !== '') genConds.push(`generation.eq.${t}`);
     });
 
+    const allConds = nameConds.length > 0 ? nameConds : genConds;
     if (allConds.length === 0) return [];
     query = query.or(allConds.join(','));
 
