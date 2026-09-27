@@ -432,7 +432,7 @@ export async function replyWithWelcome(replyToken) {
 
   const bubble = {
     "type": "bubble",
-    "size": "mega",
+    "size": "giga",
     "header": {
       "type": "box",
       "layout": "vertical",
@@ -472,25 +472,17 @@ export async function replyWithWelcome(replyToken) {
             },
             {
               "type": "text",
-              "text": "พิมพ์ข้อความส่งมาได้เลยครับ ค้นหาได้ 3 แบบ",
+              "text": "📖 ตัวอย่างวิธีการใช้งาน",
               "size": "xs",
-              "color": "#64748B",
+              "color": "#4A607A",
+              "weight": "bold",
               "margin": "sm",
               "wrap": true
             },
             { "type": "separator", "color": "#E8EDF5", "margin": "lg" },
             exampleRow("🔤", "ค้นหาด้วยชื่อ", "สมชาย"),
             exampleRow("🏷️", "ค้นหาด้วยนามสกุล", "จันทวงศ์"),
-            exampleRow("📝", "ค้นหาด้วยชื่อ + นามสกุล", "สมชาย ใจดี"),
-            { "type": "separator", "color": "#E8EDF5", "margin": "lg" },
-            {
-              "type": "text",
-              "text": "💡 พิมพ์ \"ประวัติ\" เพื่อดูประวัติการค้นหาของคุณ",
-              "size": "xs",
-              "color": "#64748B",
-              "margin": "lg",
-              "wrap": true
-            }
+            exampleRow("📝", "ค้นหาด้วยชื่อ + นามสกุล", "สมชาย ใจดี")
           ]
         }
       ]
