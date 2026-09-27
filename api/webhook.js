@@ -1,5 +1,5 @@
 import { supabase } from '../utils/supabase.js';
-import { replyWithText, replyWithFlex, showLoadingAnimation, getRawBody, verifyLineSignature } from '../utils/line.js';
+import { replyWithText, replyWithFlex, replyWithWelcome, showLoadingAnimation, getRawBody, verifyLineSignature } from '../utils/line.js';
 import { searchUsers, suggestUsers } from '../utils/search.js';
 import { logSearch, getRecentSearches } from '../utils/logger.js';
 
@@ -199,7 +199,26 @@ export default async function handler(req, res) {
           await replyWithText(replyToken, helpMsg);
         }
       }
-      // 2. จัดการการเปลี่ยนหน้า (Postback)
+      // 2. จัดการเมื่อมีคนเพิ่มเพื่อนใหม่ (Follow Event)
+      // ใช้ replyToken ที่ LINE ส่งมาพร้อม event นี้ตอบกลับได้ฟรีทันที
+      // (ไม่ใช่ push message ที่กินโควต้า) — ถ้าเปิด "Greeting message" ไว้ใน
+      // LINE Official Account Manager ด้วย ควรปิดอันนั้นก่อน กันข้อความซ้ำ 2 ชุด
+      else if (event.type === 'follow') {
+        try {
+          await replyWithWelcome(replyToken);
+        } catch (flexErr) {
+          console.error('replyWithWelcome failed, sending fallback text:', flexErr.message);
+          await replyWithText(replyToken,
+            "👮‍♂️ ยินดีต้อนรับสู่ระบบค้นหา นรต. ครับ!\n\n" +
+            "พิมพ์ชื่อหรือนามสกุลที่ต้องการค้นหาได้เลยทันที\n" +
+            "• ค้นหาด้วยชื่อ เช่น \"สมชาย\"\n" +
+            "• ค้นหาด้วยนามสกุล เช่น \"จันทวงศ์\"\n" +
+            "• ค้นหาด้วยชื่อ+นามสกุล เช่น \"สมชาย ใจดี\"\n\n" +
+            "🌐 หรือค้นหาบนเว็บไซต์: https://peerunrai.vercel.app"
+          );
+        }
+      }
+      // 3. จัดการการเปลี่ยนหน้า (Postback)
       else if (event.type === 'postback') {
         const data = new URLSearchParams(event.postback.data);
         if (data.get('action') === 'search') {

@@ -390,3 +390,165 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
     throw new Error(apiError);
   }
 }
+
+// =============================================
+// replyWithWelcome: การ์ดต้อนรับตอนมีคนเพิ่มเพื่อนใหม่ (ใช้ reply ฟรี)
+// โชว์ตัวอย่างค้นหา 3 แบบ: ชื่อ / นามสกุล / ชื่อ นามสกุล
+// =============================================
+export async function replyWithWelcome(replyToken) {
+  const url = 'https://api.line.me/v2/bot/message/reply';
+
+  const exampleRow = (icon, label, example) => ({
+    "type": "box",
+    "layout": "horizontal",
+    "alignItems": "center",
+    "spacing": "md",
+    "margin": "md",
+    "contents": [
+      {
+        "type": "box",
+        "layout": "vertical",
+        "backgroundColor": "#E8EDF5",
+        "cornerRadius": "xl",
+        "width": "32px",
+        "height": "32px",
+        "justifyContent": "center",
+        "alignItems": "center",
+        "flex": 0,
+        "contents": [
+          { "type": "text", "text": icon, "size": "sm", "align": "center" }
+        ]
+      },
+      {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          { "type": "text", "text": label, "size": "xs", "color": "#4A607A", "weight": "bold" },
+          { "type": "text", "text": example, "size": "sm", "color": "#111111", "weight": "bold", "wrap": true }
+        ]
+      }
+    ]
+  });
+
+  const bubble = {
+    "type": "bubble",
+    "size": "mega",
+    "header": {
+      "type": "box",
+      "layout": "vertical",
+      "contents": [
+        {
+          "type": "image",
+          "url": "https://img1.pic.in.th/images/ChatGPT-Image-8-..-2569-13_52_39.png",
+          "size": "full",
+          "aspectMode": "cover",
+          "aspectRatio": "21:9"
+        }
+      ],
+      "paddingAll": "none"
+    },
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "paddingAll": "14px",
+      "backgroundColor": "#F7F9FC",
+      "contents": [
+        {
+          "type": "box",
+          "layout": "vertical",
+          "paddingAll": "16px",
+          "cornerRadius": "14px",
+          "borderWidth": "2px",
+          "borderColor": "#0F4C81",
+          "backgroundColor": "#FFFFFF",
+          "contents": [
+            {
+              "type": "text",
+              "text": "👮‍♂️ ยินดีต้อนรับสู่ระบบค้นหา นรต.",
+              "size": "md",
+              "weight": "bold",
+              "color": "#0F4C81",
+              "wrap": true
+            },
+            {
+              "type": "text",
+              "text": "พิมพ์ข้อความส่งมาได้เลยครับ ค้นหาได้ 3 แบบ",
+              "size": "xs",
+              "color": "#64748B",
+              "margin": "sm",
+              "wrap": true
+            },
+            { "type": "separator", "color": "#E8EDF5", "margin": "lg" },
+            exampleRow("🔤", "ค้นหาด้วยชื่อ", "สมชาย"),
+            exampleRow("🏷️", "ค้นหาด้วยนามสกุล", "จันทวงศ์"),
+            exampleRow("📝", "ค้นหาด้วยชื่อ + นามสกุล", "สมชาย ใจดี"),
+            { "type": "separator", "color": "#E8EDF5", "margin": "lg" },
+            {
+              "type": "text",
+              "text": "💡 พิมพ์ \"ประวัติ\" เพื่อดูประวัติการค้นหาของคุณ",
+              "size": "xs",
+              "color": "#64748B",
+              "margin": "lg",
+              "wrap": true
+            }
+          ]
+        }
+      ]
+    },
+    "footer": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#F7F9FC",
+      "spacing": "sm",
+      "contents": [
+        {
+          "type": "button",
+          "style": "primary",
+          "color": "#0F4C81",
+          "height": "sm",
+          "action": {
+            "type": "uri",
+            "label": "🌐 ดูบนเว็บไซต์",
+            "uri": "https://peerunrai.vercel.app"
+          }
+        },
+        {
+          "type": "text",
+          "text": "RPCA79",
+          "color": "#4A607A",
+          "size": "xs",
+          "align": "center",
+          "margin": "md"
+        },
+        {
+          "type": "text",
+          "text": "พัฒนาโดยน้อง นรต.79",
+          "color": "#8A97A8",
+          "size": "xxs",
+          "align": "center",
+          "margin": "xs"
+        }
+      ],
+      "paddingBottom": "md",
+      "paddingTop": "none",
+      "paddingStart": "14px",
+      "paddingEnd": "14px"
+    }
+  };
+
+  const messages = [{
+    "type": "flex",
+    "altText": "ยินดีต้อนรับสู่ระบบค้นหา นรต. — พิมพ์ชื่อหรือนามสกุลเพื่อเริ่มค้นหา",
+    "contents": bubble
+  }];
+
+  try {
+    await axios.post(url, { replyToken, messages }, {
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + LINE_ACCESS_TOKEN }
+    });
+  } catch (e) {
+    const apiError = e?.response?.data ? JSON.stringify(e.response.data) : e.message;
+    console.error("Error replying with welcome flex:", apiError);
+    throw new Error(apiError);
+  }
+}
