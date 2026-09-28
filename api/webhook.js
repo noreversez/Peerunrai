@@ -2,6 +2,7 @@ import { supabase } from '../utils/supabase.js';
 import { replyWithText, replyWithFlex, replyWithWelcome, showLoadingAnimation, getRawBody, verifyLineSignature } from '../utils/line.js';
 import { searchUsers, suggestUsers } from '../utils/search.js';
 import { logSearch, getRecentSearches } from '../utils/logger.js';
+import { rateLimit, getClientIp } from '../utils/ratelimit.js';
 
 // ปิด body parser ของ Vercel เพื่ออ่าน raw body มาตรวจลายเซ็นได้ถูกต้อง
 export const config = { api: { bodyParser: false } };
@@ -12,23 +13,38 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // กัน flood ก่อนทำอะไรทั้งนั้น: จำกัด 100 ครั้ง/นาที/IP
+  // (สูงกว่า /api/search มาก เพราะ IP นี้มักเป็น IP ของฝั่ง LINE เองที่ผู้ใช้จริงหลายคนใช้ร่วมกัน
+  // ตัวเลขนี้แค่กันแหล่งเดียวยิงถล่ม ไม่ใช่ตัวป้องกันหลัก — ตัวป้องกันหลักคือ LINE_CHANNEL_SECRET ด้านล่าง)
+  const ip = getClientIp(req);
+  const rl = rateLimit(`webhook:${ip}`, 100, 60_000);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter));
+    return res.status(429).json({ error: 'Too many requests' });
+  }
+
+  // อ่าน raw body แยกจาก try หลัก กันไม่ให้ปัญหาอ่าน stream ไปโผล่เป็น 500 ทั่วไป
+  let rawBody = '';
   try {
-    // อ่าน raw body (กรณี bodyParser ถูกปิดสำเร็จ) — ใช้ตรวจลายเซ็น
-    const rawBody = await getRawBody(req);
-    const hasRaw  = typeof rawBody === 'string' && rawBody.length > 0;
+    rawBody = await getRawBody(req);
+  } catch (e) {
+    console.warn('อ่าน raw body ไม่สำเร็จ:', e.message);
+  }
+  const hasRaw = typeof rawBody === 'string' && rawBody.length > 0;
 
-    // แยกร่างข้อมูล: ถ้า Vercel เผลอ parse ไปแล้ว (เป็น object) ให้ใช้ตัวนั้น
-    // เพื่อให้บอทไม่มีวันพังแม้ปิด bodyParser ไม่สำเร็จ
-    let body;
-    if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
-      body = req.body;
-    } else if (hasRaw) {
-      try { body = JSON.parse(rawBody); }
-      catch { return res.status(400).json({ error: 'Invalid JSON' }); }
-    } else {
-      body = {};
-    }
+  // แยกร่างข้อมูล: ถ้า Vercel เผลอ parse ไปแล้ว (เป็น object) ให้ใช้ตัวนั้น
+  // เพื่อให้บอทไม่มีวันพังแม้ปิด bodyParser ไม่สำเร็จ
+  let body;
+  if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
+    body = req.body;
+  } else if (hasRaw) {
+    try { body = JSON.parse(rawBody); }
+    catch { return res.status(400).json({ error: 'Invalid JSON' }); }
+  } else {
+    body = {};
+  }
 
+  try {
     // ตรวจลายเซ็น x-line-signature (กันคนปลอม event เข้ามา)
     // บังคับตรวจเฉพาะเมื่อ (1) ตั้ง LINE_CHANNEL_SECRET แล้ว และ (2) อ่าน raw body ได้จริง
     // ถ้าอ่าน raw ไม่ได้ (แพลตฟอร์มไม่เคารพ bodyParser:false) จะข้ามการตรวจ + เตือนใน log
