@@ -56,6 +56,12 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  // ── GET: ตรวจบทบาทของ Supabase key ที่ backend ใช้อยู่ (ไม่เปิดเผยค่าคีย์) ──
+  // ใช้เช็คก่อนเปิด RLS: ต้องได้ rlsSafe = true (คือ service_role) ไม่งั้นเว็บจะพัง
+  if (req.method === 'GET' && action === 'key-diagnostics') {
+    return res.status(200).json(describeSupabaseKeys());
+  }
+
   // ── GET: สถิติการค้นหา (ยอดนิยม + คำที่ค้นไม่พบ + ล่าสุด) ──
   if (req.method === 'GET' && action === 'search-analytics') {
     const days = Math.min(90, Math.max(1, parseInt(req.query.days, 10) || 7));
@@ -223,6 +229,34 @@ export default async function handler(req, res) {
   }
 
   return res.status(404).json({ error: 'Unknown action' });
+}
+
+// อ่านบทบาทของคีย์จากตัวคีย์เอง (JWT payload.role หรือ prefix ของคีย์รูปแบบใหม่) โดยไม่คืนค่าคีย์
+function roleOfKey(key) {
+  if (!key) return { present: false, format: 'none', role: 'none' };
+  if (key.startsWith('sb_secret_'))      return { present: true, format: 'new-secret',      role: 'service_role' };
+  if (key.startsWith('sb_publishable_')) return { present: true, format: 'new-publishable', role: 'anon' };
+  const parts = key.split('.');
+  if (parts.length === 3) {
+    try {
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+      return { present: true, format: 'jwt', role: payload.role || 'unknown' };
+    } catch { /* ตกไป unknown */ }
+  }
+  return { present: true, format: 'unknown', role: 'unknown' };
+}
+
+function describeSupabaseKeys() {
+  const service  = roleOfKey(process.env.SUPABASE_SERVICE_KEY || '');
+  const fallback = roleOfKey(process.env.SUPABASE_KEY || '');
+  const inUse    = service.present ? 'SUPABASE_SERVICE_KEY' : (fallback.present ? 'SUPABASE_KEY' : 'none');
+  const activeRole = service.present ? service.role : fallback.role;
+  return {
+    inUse,
+    SUPABASE_SERVICE_KEY: service,
+    SUPABASE_KEY: fallback,
+    rlsSafe: activeRole === 'service_role',
+  };
 }
 
 // ตรวจ + ทำความสะอาด input ของ นรต. แล้วคำนวณ norm ให้พร้อมบันทึก

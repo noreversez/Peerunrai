@@ -1,4 +1,3 @@
-import { supabase } from '../utils/supabase.js';
 import { replyWithText, replyWithFlex, replyWithWelcome, showLoadingAnimation, getRawBody, verifyLineSignature } from '../utils/line.js';
 import { searchUsers, suggestUsers } from '../utils/search.js';
 import { logSearch, getRecentSearches } from '../utils/logger.js';
@@ -112,107 +111,82 @@ export default async function handler(req, res) {
         }
 
         // --- ระบบค้นหาปกติ ---
-        let keyword = '';
-        let isSearch = false;
+        // ตัดคำนำหน้า "ค้นหา " / "รุ่น " ออก (ถ้าไม่มีก็ใช้ข้อความทั้งหมดเป็นคำค้น)
+        const keyword = text.replace(/^(ค้นหา|รุ่น) /, '').replace(/\s+/g, ' ').trim();
 
-        if (text.startsWith('ค้นหา ')) {
-          keyword = text.replace('ค้นหา ', '').replace(/\s+/g, ' ').trim();
-          isSearch = true;
-        } else if (text.startsWith('รุ่น ')) {
-          keyword = text.replace('รุ่น ', '').replace(/\s+/g, ' ').trim();
-          isSearch = true;
-        } else {
-          keyword = text.replace(/\s+/g, ' ').trim();
-          isSearch = true;
-        }
-
-        if (isSearch && keyword === '') {
+        if (keyword === '') {
           await replyWithText(replyToken, "⚠️ กรุณาระบุคำที่ต้องการค้นหาด้วยครับ เช่น 'สมชาย'");
           continue;
         }
 
-        if (isSearch && keyword) {
-          // ตรวจสอบว่าเป็นชื่อสั้น (คำเดียว + ไม่เกิน 4 ตัวอักษร) หรือไม่
-          const tokens = keyword.trim().split(/\s+/);
-          const isSingleShortToken = tokens.length === 1 && keyword.replace(/\s+/g, '').length <= 4;
+        if (keyword.replace(/\s+/g, '').length <= 1) {
+          await replyWithText(replyToken, `⚠️ คำค้นหา "${keyword}" สั้นเกินไปครับ\nกรุณาพิมพ์ชื่อให้ยาวกว่านี้`);
+          continue;
+        }
 
-          if (keyword.replace(/\s+/g, '').length <= 1) {
-            await replyWithText(replyToken, `⚠️ คำค้นหา "${keyword}" สั้นเกินไปครับ\nกรุณาพิมพ์ชื่อให้ยาวกว่านี้`);
-            continue;
-          }
+        // แสดงแค่ Loading Animation (ห้ามใช้ replyToken ก่อนการค้นหาเสร็จสิ้น)
+        if (userId) await showLoadingAnimation(userId);
 
-          // แสดงแค่ Loading Animation (ห้ามใช้ replyToken ก่อนการค้นหาเสร็จสิ้น)
-          if (userId) await showLoadingAnimation(userId);
+        // ค้นหาใน Supabase (จำกัด 10 ต่อหน้าเพื่อความเร็ว)
+        const page = 1;
+        const { results, total, exact, generationOnly } = await searchUsers(keyword, page, 10);
 
-          // ค้นหาใน Supabase (จำกัด 10 ต่อหน้าเพื่อความเร็ว)
-          const page = 1;
-          const { results, total, exact, generationOnly } = await searchUsers(keyword, page, 10);
+        // บันทึก log แบบ async (ไม่ block การตอบกลับ)
+        if (userId) logSearch(userId, keyword, total);
 
-          // บันทึก log แบบ async (ไม่ block การตอบกลับ)
-          if (userId) logSearch(userId, keyword, total);
-
-          // ค้นด้วยเลขรุ่นล้วน ๆ (ไม่มีชื่อ) — ไม่แสดงรายชื่อ บอกแค่จำนวนรวม กันดัมพ์ทั้งรุ่น
-          if (generationOnly) {
-            if (total === 0) {
-              await replyWithText(replyToken, `❌ ไม่พบข้อมูลรุ่น "${keyword}" ในระบบครับ`);
-            } else {
-              await replyWithText(replyToken,
-                `🎓 รุ่น ${keyword} มีทั้งหมด ${total.toLocaleString('th-TH')} คนครับ\n\n` +
-                `กรุณาพิมพ์ชื่อหรือนามสกุลเพิ่มเติมเพื่อดูรายชื่อ เช่น "สมชาย ${keyword}"`
-              );
-            }
-            continue;
-          }
-
-          let hintMsg = "";
-          if (isSingleShortToken && total > 0) {
-            hintMsg = `\n\n💡 ค้นหาเยอะเกินไป? ลองพิมพ์ "ชื่อ นามสกุล" หรือ "ชื่อ รุ่น" (เช่น ${keyword} 79) เพื่อให้แม่นยำขึ้นครับ`;
-          }
-
+        // ค้นด้วยเลขรุ่นล้วน ๆ (ไม่มีชื่อ) — ไม่แสดงรายชื่อ บอกแค่จำนวนรวม กันดัมพ์ทั้งรุ่น
+        if (generationOnly) {
           if (total === 0) {
-            const suggestions = await suggestUsers(keyword);
-
-            if (suggestions.length > 0) {
-              const quickReplyItems = suggestions.map(name => ({
-                type: 'action',
-                action: {
-                  type: 'message',
-                  label: name.length > 20 ? name.substring(0, 20) : name,
-                  text: name,
-                },
-              }));
-              await replyWithText(
-                replyToken,
-                `❌ ไม่พบ "${keyword}" ในฐานข้อมูลครับ\n\n🤔 หรือคุณหมายถึง...\n${suggestions.map((n, i) => `${i + 1}. ${n}`).join('\n')}\n\nกดเลือกชื่อด้านล่างได้เลยครับ 👇\n\n📝 หรืออาจมีการเปลี่ยนชื่อ-นามสกุลไปแล้วครับ\n🌐 หรือลองค้นหาในเว็บไซต์อีกครั้งเพื่อความแม่นยำ`,
-                quickReplyItems
-              );
-            } else {
-              await replyWithText(replyToken,
-                `❌ ไม่พบข้อมูล นรต. ที่ตรงกับ "${keyword}"\n\n` +
-                `💡 ลองใหม่ด้วย:\n` +
-                `• ระบุนามสกุลแทนชื่อ\n` +
-                `• พิมพ์ "ชื่อ นามสกุล" เว้นวรรคคั่น\n` +
-                `• พิมพ์ "ชื่อ รุ่น" เช่น "สมชาย 79"\n` +
-                `• อาจมีการเปลี่ยนชื่อ-นามสกุลไปแล้ว ลองค้นด้วยชื่อเดิม\n\n` +
-                `🌐 หรือลองค้นหาในเว็บไซต์อีกครั้งเพื่อความแม่นยำ`
-              );
-            }
+            await replyWithText(replyToken, `❌ ไม่พบข้อมูลรุ่น "${keyword}" ในระบบครับ`);
           } else {
-            try {
-              await replyWithFlex(replyToken, keyword, results, total, page, 10, keyword, exact);
-            } catch (flexErr) {
-              console.error('replyWithFlex failed, sending fallback text:', flexErr.message);
-              await replyWithText(replyToken,
-                `⚠️ ระบบประมวลผลนานเกินไปครับ\n\n` +
-                `🔍 พบ "${keyword}" ทั้งหมด ${total} รายการ\n` +
-                `กรุณาลองค้นหาที่เฉพาะเจาะจงขึ้น เช่น "${keyword} 79"\n\n` +
-                `🌐 หรือค้นหาบนเว็บไซต์แทนครับ\nhttps://peerunrai.vercel.app/?q=${encodeURIComponent(keyword)}`
-              );
-            }
+            await replyWithText(replyToken,
+              `🎓 รุ่น ${keyword} มีทั้งหมด ${total.toLocaleString('th-TH')} คนครับ\n\n` +
+              `กรุณาพิมพ์ชื่อหรือนามสกุลเพิ่มเติมเพื่อดูรายชื่อ เช่น "สมชาย ${keyword}"`
+            );
+          }
+          continue;
+        }
+
+        if (total === 0) {
+          const suggestions = await suggestUsers(keyword);
+
+          if (suggestions.length > 0) {
+            const quickReplyItems = suggestions.map(name => ({
+              type: 'action',
+              action: {
+                type: 'message',
+                label: name.length > 20 ? name.substring(0, 20) : name,
+                text: name,
+              },
+            }));
+            await replyWithText(
+              replyToken,
+              `❌ ไม่พบ "${keyword}" ในฐานข้อมูลครับ\n\n🤔 หรือคุณหมายถึง...\n${suggestions.map((n, i) => `${i + 1}. ${n}`).join('\n')}\n\nกดเลือกชื่อด้านล่างได้เลยครับ 👇\n\n📝 หรืออาจมีการเปลี่ยนชื่อ-นามสกุลไปแล้วครับ\n🌐 หรือลองค้นหาในเว็บไซต์อีกครั้งเพื่อความแม่นยำ`,
+              quickReplyItems
+            );
+          } else {
+            await replyWithText(replyToken,
+              `❌ ไม่พบข้อมูล นรต. ที่ตรงกับ "${keyword}"\n\n` +
+              `💡 ลองใหม่ด้วย:\n` +
+              `• ระบุนามสกุลแทนชื่อ\n` +
+              `• พิมพ์ "ชื่อ นามสกุล" เว้นวรรคคั่น\n` +
+              `• พิมพ์ "ชื่อ รุ่น" เช่น "สมชาย 79"\n` +
+              `• อาจมีการเปลี่ยนชื่อ-นามสกุลไปแล้ว ลองค้นด้วยชื่อเดิม\n\n` +
+              `🌐 หรือลองค้นหาในเว็บไซต์อีกครั้งเพื่อความแม่นยำ`
+            );
           }
         } else {
-          const helpMsg = "👮‍♂️ ยินดีต้อนรับสู่ระบบค้นหา นรต.\n\nกรุณาพิมพ์คำสั่งดังนี้:\n- ค้นหาชื่อ: พิมพ์ \"ค้นหา [ชื่อ]\"\n- ค้นหารุ่น: พิมพ์ \"รุ่น [เลขรุ่น]\"\n- ดูประวัติ: พิมพ์ \"ประวัติ\"";
-          await replyWithText(replyToken, helpMsg);
+          try {
+            await replyWithFlex(replyToken, keyword, results, total, page, 10, keyword, exact);
+          } catch (flexErr) {
+            console.error('replyWithFlex failed, sending fallback text:', flexErr.message);
+            await replyWithText(replyToken,
+              `⚠️ ระบบประมวลผลนานเกินไปครับ\n\n` +
+              `🔍 พบ "${keyword}" ทั้งหมด ${total} รายการ\n` +
+              `กรุณาลองค้นหาที่เฉพาะเจาะจงขึ้น เช่น "${keyword} 79"\n\n` +
+              `🌐 หรือค้นหาบนเว็บไซต์แทนครับ\nhttps://peerunrai.vercel.app/?q=${encodeURIComponent(keyword)}`
+            );
+          }
         }
       }
       // 2. จัดการเมื่อมีคนเพิ่มเพื่อนใหม่ (Follow Event)

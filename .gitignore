@@ -3,3 +3,7 @@ node_modules
 .env.local
 .DS_Store
 .claude/
+
+# โปรเจกต์/ไฟล์อื่นที่อยู่ในโฟลเดอร์นี้แต่ไม่เกี่ยวกับ repo นี้ (personal-duty-officer มี .git ของตัวเอง)
+personal-duty-officer/
+investigation-cdr.html

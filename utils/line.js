@@ -70,7 +70,6 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
   const bubbles = [];
   const itemsPerBubble = 10;
   const bubbleCount = Math.ceil(results.length / itemsPerBubble);
-  const mainSearchTerm = cleanKey.replace(/\s+/g, "").toLowerCase();
 
   for (let i = 0; i < bubbleCount; i++) {
     const chunk = results.slice(i * itemsPerBubble, (i + 1) * itemsPerBubble);
@@ -90,7 +89,7 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
             "contents": [
               {
                 "type": "image",
-                "url": "https://cdn-icons-png.flaticon.com/512/54/54481.png",
+                "url": "https://peerunrai.vercel.app/icon-search.png",
                 "size": "16px",
                 "flex": 0
               },
@@ -208,7 +207,7 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
         "contents": [
           {
             "type": "image",
-            "url": "https://img1.pic.in.th/images/ChatGPT-Image-8-..-2569-13_52_39.png",
+            "url": "https://peerunrai.vercel.app/line-banner.jpg",
             "size": "full",
             "aspectMode": "cover",
             "aspectRatio": "21:9"
@@ -281,7 +280,7 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
         "contents": [
           {
             "type": "image",
-            "url": "https://img1.pic.in.th/images/ChatGPT-Image-8-..-2569-13_52_39.png",
+            "url": "https://peerunrai.vercel.app/line-banner.jpg",
             "size": "full",
             "aspectMode": "cover",
             "aspectRatio": "21:9"
@@ -439,7 +438,7 @@ export async function replyWithWelcome(replyToken) {
       "contents": [
         {
           "type": "image",
-          "url": "https://img1.pic.in.th/images/ChatGPT-Image-8-..-2569-13_52_39.png",
+          "url": "https://peerunrai.vercel.app/line-banner.jpg",
           "size": "full",
           "aspectMode": "cover",
           "aspectRatio": "21:9"
