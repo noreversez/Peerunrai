@@ -31,7 +31,7 @@ export function fixHomoglyphs(str) {
   return String(str || '').replace(/เเ/g, 'แ').replace(/ํา/g, 'ำ');
 }
 
-function tokenize(keyword) {
+export function tokenize(keyword) {
   const clean = fixHomoglyphs(String(keyword || ''))
     .replace(/[\u200B-\u200D\uFEFF]/g, '') // zero-width chars
     .replace(RANK_REGEX, '')                     // ตัดยศนำหน้า

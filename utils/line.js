@@ -1,5 +1,6 @@
 import axios from 'axios';
 import crypto from 'crypto';
+import { tokenize } from './search.js';
 
 const LINE_ACCESS_TOKEN  = process.env.LINE_ACCESS_TOKEN  || '';
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || '';
@@ -65,7 +66,72 @@ export async function replyWithText(replyToken, messageText, quickReplyItems = n
   }
 }
 
+// สระบน/ล่าง วรรณยุกต์ ฯลฯ ที่ต้องอยู่ติดพยัญชนะตัวก่อนหน้า — ไม่ตัด span กลางกลุ่มตัวอักษร
+// ไม่งั้นเครื่องหมายอาจหลุดลอยตอนแสดงผล
+const THAI_COMBINING = /[ัิ-ฺ็-๎]/;
+
+// แบ่งข้อความเป็นช่วง ๆ ว่าช่วงไหนตรงกับคำที่ค้น (hit) — ใช้ tokenize ตัวเดียวกับระบบค้นหา
+// (ตัดยศ แก้ตัวอักษรไทยซ้อน) และเหมือนเว็บคือข้ามคำสั้นกว่า 2 ตัวและตัวเลขรุ่น
+export function highlightSegments(text, keyword) {
+  const tokens = tokenize(keyword).filter(t => t.length >= 2 && !/^[0-9]+$/.test(t));
+  if (!text || tokens.length === 0) return [{ text, hit: false }];
+
+  const lowerText = text.toLowerCase();
+  const hay = lowerText.length === text.length ? lowerText : text;
+  const mask = new Array(text.length).fill(false);
+
+  for (const t of tokens) {
+    const lowerTok = t.toLowerCase();
+    const needle = lowerTok.length === t.length ? lowerTok : t;
+    let from = 0;
+    for (;;) {
+      const at = hay.indexOf(needle, from);
+      if (at < 0) break;
+      let end = at + needle.length;
+      while (end < text.length && THAI_COMBINING.test(text[end])) end++;
+      for (let k = at; k < end; k++) mask[k] = true;
+      from = at + 1;
+    }
+  }
+
+  const segments = [];
+  for (let k = 0; k < text.length; k++) {
+    const last = segments[segments.length - 1];
+    if (last && last.hit === mask[k]) last.text += text[k];
+    else segments.push({ text: text[k], hit: mask[k] });
+  }
+  return segments;
+}
+
+// ข้อความชื่อในการ์ด: ถ้ามีคำตรง → ส่วนที่ตรงเป็นตัวหนาสีน้ำเงิน ที่เหลือเป็นตัวบางสีเทา
+// ถ้าไม่มีส่วนไหนตรง (เช่น ตรงด้วยเสียง) → แสดงตัวหนาสีดำแบบเดิมทั้งชื่อ
+export function nameTextComponent(fullName, keyword) {
+  const segments = highlightSegments(fullName, keyword);
+  const base = { "type": "text", "size": "md", "wrap": true };
+  if (!segments.some(s => s.hit)) {
+    return { ...base, "text": fullName, "weight": "bold", "color": "#111111" };
+  }
+  return {
+    ...base,
+    "contents": segments.map(s => s.hit
+      ? { "type": "span", "text": s.text, "weight": "bold",    "color": "#0F4C81" }
+      : { "type": "span", "text": s.text, "weight": "regular", "color": "#475569" })
+  };
+}
+
+// ส่งการ์ดผลค้นหา — ปกติส่งแบบไฮไลต์คำค้น ถ้า LINE ปฏิเสธ (400) จะส่งซ้ำแบบไม่ไฮไลต์ทันที
+// กันกรณีรูปแบบ span ไม่ผ่านการตรวจของ LINE แล้วทุกคนเห็นแต่ข้อความธรรมดาแทนการ์ด
 export async function replyWithFlex(replyToken, keyword, results, totalFound, page = 1, itemsPerPage = 30, cleanKey = "", isExact = true) {
+  try {
+    return await sendFlexResults(replyToken, keyword, results, totalFound, page, itemsPerPage, cleanKey, isExact, true);
+  } catch (e) {
+    if (e.status !== 400) throw e;
+    console.warn('LINE ปฏิเสธการ์ดแบบไฮไลต์ → ส่งซ้ำแบบไม่ไฮไลต์:', e.message);
+    return await sendFlexResults(replyToken, keyword, results, totalFound, page, itemsPerPage, cleanKey, isExact, false);
+  }
+}
+
+async function sendFlexResults(replyToken, keyword, results, totalFound, page, itemsPerPage, cleanKey, isExact, useHighlight) {
   const url = 'https://api.line.me/v2/bot/message/reply';
   const bubbles = [];
   const itemsPerBubble = 10;
@@ -127,6 +193,18 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
       }
     ];
 
+    // ผลใกล้เคียง: บอกว่าเรียงลำดับตามอะไร (ให้ตรงกับแบนเนอร์บนเว็บ)
+    if (!isExact) {
+      innerContents.push({
+        "type": "text",
+        "text": "เรียงจากที่ใกล้เคียงที่สุดก่อน",
+        "size": "xs",
+        "color": "#B45309",
+        "margin": "sm",
+        "wrap": true
+      });
+    }
+
     chunk.forEach((user, index) => {
       innerContents.push({
         "type": "separator",
@@ -165,14 +243,9 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
               }
             ]
           },
-          {
-            "type": "text",
-            "text": fullName,
-            "size": "md",
-            "weight": "bold",
-            "color": "#111111",
-            "wrap": true
-          },
+          useHighlight
+            ? nameTextComponent(fullName, cleanKey || keyword)
+            : { "type": "text", "text": fullName, "size": "md", "weight": "bold", "color": "#111111", "wrap": true },
           {
             "type": "box",
             "layout": "vertical",
@@ -386,7 +459,9 @@ export async function replyWithFlex(replyToken, keyword, results, totalFound, pa
   } catch (e) {
     const apiError = e?.response?.data ? JSON.stringify(e.response.data) : e.message;
     console.error("Error replying with flex:", apiError);
-    throw new Error(apiError);
+    const err = new Error(apiError);
+    err.status = e?.response?.status;
+    throw err;
   }
 }
 
