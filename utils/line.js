@@ -164,6 +164,7 @@ async function sendFlexResults(replyToken, keyword, results, totalFound, page, i
                 "text": isExact ? "ผลการค้นหา" : "ผลใกล้เคียง (ไม่พบที่ตรงทั้งหมด)",
                 "size": "sm",
                 "weight": "bold",
+                "wrap": true,
                 "color": isExact ? "#0F4C81" : "#D97706"
               }
             ]
@@ -183,7 +184,7 @@ async function sendFlexResults(replyToken, keyword, results, totalFound, page, i
                 "type": "text",
                 "text": `พบ ${totalFound} รายการ`,
                 "color": "#16A34A",
-                "size": "xxs",
+                "size": "xs",
                 "align": "center",
                 "weight": "bold"
               }
@@ -343,24 +344,27 @@ async function sendFlexResults(replyToken, keyword, results, totalFound, page, i
   if (totalFound > page * itemsPerPage) {
     const safeKeyword = keyword.substring(0, 50);
     const remainingCount = totalFound - (page * itemsPerPage);
-    
+
+    // ผลเยอะและค้นด้วยคำเดียว (ไม่มีนามสกุลหรือเลขรุ่น): แนะนำให้ระบุเพิ่มเพื่อให้เจอตรงขึ้น
+    // จะได้ไม่ต้องไล่เปิดทีละหน้า — แสดงเฉพาะหน้าแรกเพื่อไม่ให้ซ้ำทุกหน้า
+    const hintTokens = tokenize(cleanKey || keyword);
+    const nameTokens = hintTokens.filter(t => !/^[0-9]+$/.test(t));
+    const showNarrowHint = page === 1 && totalFound > 20
+      && nameTokens.length === 1 && nameTokens.length === hintTokens.length;
+    const narrowHint = showNarrowHint ? [{
+      "type": "text",
+      "text": `💡 ผลเยอะ? ลองพิมพ์ "ชื่อ นามสกุล" หรือ "${nameTokens[0].slice(0, 20)} 79" (ชื่อ + รุ่น) เพื่อให้เจอตรงขึ้น`,
+      "size": "xs",
+      "color": "#B45309",
+      "margin": "lg",
+      "align": "center",
+      "wrap": true
+    }] : [];
+
+    // ใบนี้ไม่มีแบนเนอร์ (มีแล้วที่ใบแรก) ให้การ์ดกะทัดรัดขึ้น
     bubbles.push({
       "type": "bubble",
       "size": "mega",
-      "header": {
-        "type": "box",
-        "layout": "vertical",
-        "contents": [
-          {
-            "type": "image",
-            "url": "https://peerunrai.vercel.app/line-banner.jpg",
-            "size": "full",
-            "aspectMode": "cover",
-            "aspectRatio": "21:9"
-          }
-        ],
-        "paddingAll": "none"
-      },
       "body": {
         "type": "box",
         "layout": "vertical",
@@ -402,7 +406,8 @@ async function sendFlexResults(replyToken, keyword, results, totalFound, page, i
                 "color": "#64748B",
                 "margin": "sm",
                 "align": "center"
-              }
+              },
+              ...narrowHint
             ]
           }
         ]
