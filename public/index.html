@@ -18,6 +18,15 @@
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <script>
+    // ธีมเริ่มต้น = กลางคืน (ดำ) ไม่ว่าเครื่องจะอยู่โหมดไหน ผู้ใช้กดสลับได้และระบบจำค่าไว้
+    // ตั้งก่อนวาดหน้า กันพื้นหลังขาวกะพริบ
+    (function () {
+      var t = 'dark';
+      try { var s = localStorage.getItem('peerunrai-theme'); if (s === 'light' || s === 'dark') t = s; } catch (e) {}
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <title>ค้นหา นรต. · พี่รุ่นไรน้อง</title>
   <meta name="description" content="ระบบค้นหานักเรียนนายร้อยตำรวจ รองรับการค้นหาด้วยชื่อ นามสกุล หรือรุ่น" />
   <link rel="icon" type="image/png" href="https://img2.pic.in.th/ChatGPT-Image-4-..-2569-09_57_31.png" />
@@ -66,24 +75,26 @@
       --glass-border:rgba(255, 255, 255, 0.4);
     }
 
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg:          #191919;
-        --bg-rgb:      25, 25, 25;
-        --bg-2:        #202020;
-        --bg-3:        #2a2a2a;
-        --border:      #333333;
-        --border-dark: #444444;
-        --text-1:      #f0f0ee;
-        --text-2:      #b0b0ae;
-        --text-3:      #666664;
-        --accent-soft: #1e3a6e;
-        --shadow-sm:   0 2px 4px rgba(0,0,0,.2);
-        --shadow-md:   0 8px 24px rgba(0,0,0,.3);
-        --shadow-lg:   0 16px 40px rgba(0,0,0,.4);
-        --glass-bg:    rgba(25, 25, 25, 0.65);
-        --glass-border:rgba(255, 255, 255, 0.05);
-      }
+    :root[data-theme="light"] { color-scheme: light; }
+
+    /* โหมดกลางคืน (ค่าตั้งต้น) — สลับด้วยปุ่มบนแถบเมนู ผ่านแอตทริบิวต์ data-theme ที่ <html> */
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg:          #191919;
+      --bg-rgb:      25, 25, 25;
+      --bg-2:        #202020;
+      --bg-3:        #2a2a2a;
+      --border:      #333333;
+      --border-dark: #444444;
+      --text-1:      #f0f0ee;
+      --text-2:      #b0b0ae;
+      --text-3:      #666664;
+      --accent-soft: #1e3a6e;
+      --shadow-sm:   0 2px 4px rgba(0,0,0,.2);
+      --shadow-md:   0 8px 24px rgba(0,0,0,.3);
+      --shadow-lg:   0 16px 40px rgba(0,0,0,.4);
+      --glass-bg:    rgba(25, 25, 25, 0.65);
+      --glass-border:rgba(255, 255, 255, 0.05);
     }
 
     html { scroll-behavior: smooth; }
@@ -769,6 +780,84 @@
       border-top: 1px solid var(--border);
     }
 
+    /* ── ปุ่มสลับกลางวัน/กลางคืน: แสดงโหมดที่ "จะสลับไป" (อยู่โหมดมืดเห็นดวงอาทิตย์) ── */
+    .theme-ic {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    :root[data-theme="dark"]  .theme-to-dark  { display: none; }
+    :root[data-theme="light"] .theme-to-light { display: none; }
+
+    /* ── การ์ดลอย Police Worker (มุมขวาล่าง) ── */
+    .pw-float {
+      position: fixed;
+      right: 30px;
+      bottom: 30px;
+      z-index: 98; /* ใต้ปุ่มกลับขึ้นบน (99) และหน้าต่าง modal (100) */
+      display: flex;
+      align-items: flex-start;
+      max-width: calc(100vw - 32px);
+      background: var(--glass-bg);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow-md);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(16px);
+      transition: opacity .3s, transform .3s;
+    }
+    .pw-float.show { opacity: 1; pointer-events: auto; transform: none; }
+    .pw-float-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 4px 8px 8px;
+      color: var(--text-1);
+      text-decoration: none;
+      min-width: 0;
+    }
+    .pw-float-link img {
+      display: block;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .pw-float-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      line-height: 1.25;
+    }
+    .pw-float-text strong { font-size: 13px; font-weight: 700; }
+    .pw-float-text small  { font-size: 11px; color: var(--text-2); }
+    .pw-float-link:hover strong { color: var(--accent); }
+    .pw-float-close {
+      width: 28px;
+      height: 28px;
+      margin: 3px 3px 0 0;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--text-3);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .pw-float-close:hover { background: var(--bg-3); color: var(--text-1); }
+    /* การ์ดแสดงอยู่ → ดันปุ่มกลับขึ้นบนให้พ้นการ์ด และเว้นท้ายหน้าไม่ให้การ์ดบังข้อความ */
+    body.pw-open .back-to-top { bottom: 102px; }
+    body.pw-open footer { padding-bottom: 100px; }
+    @media (prefers-reduced-motion: reduce) {
+      .pw-float { transition: none; }
+    }
+
     /* ── Mobile Optimization ── */
     @media (max-width: 600px) {
       .hero { padding: 40px 16px 24px; }
@@ -781,6 +870,14 @@
       .nav-icon-btn { padding: 7px 6px; }
       .modal-sheet { max-height: 92vh; border-radius: 16px 16px 0 0; }
       .back-to-top { bottom: 20px; right: 20px; width: 44px; height: 44px; }
+      .pw-float { right: 16px; bottom: 16px; }
+      body.pw-open .back-to-top { bottom: 88px; }
+    }
+
+    /* จอแคบ (มือถือส่วนใหญ่): แถบเมนูมี 5 ปุ่ม ต้องประหยัดพื้นที่ ไม่งั้นปุ่มท้ายสุดล้นจอ */
+    @media (max-width: 440px) {
+      header .badge { display: none; }
+      .nav-icon-btn { padding: 7px 4px; }
     }
 
     .search-wrap {
@@ -852,6 +949,10 @@
     <button class="nav-icon-btn" id="btnChangelog" title="อัปเดทล่าสุด" aria-label="อัปเดท">
       <i data-lucide="history" width="20" height="20"></i>
       <span class="nav-icon-label">อัปเดท</span>
+    </button>
+    <button class="nav-icon-btn" id="btnTheme" title="สลับโหมดกลางวัน / กลางคืน" aria-label="สลับโหมดกลางวันหรือกลางคืน">
+      <span class="theme-ic theme-to-light"><i data-lucide="sun" width="20" height="20"></i><span class="nav-icon-label">กลางวัน</span></span>
+      <span class="theme-ic theme-to-dark"><i data-lucide="moon" width="20" height="20"></i><span class="nav-icon-label">กลางคืน</span></span>
     </button>
   </nav>
 </header>
@@ -1069,13 +1170,24 @@
   <i data-lucide="arrow-up"></i>
 </button>
 
+<aside class="pw-float" id="pwFloat" aria-label="Police Worker">
+  <a class="pw-float-link" href="https://www.policeworker.one/%E0%B8%AB%E0%B8%99%E0%B8%B2%E0%B9%81%E0%B8%A3%E0%B8%81" target="_blank" rel="noopener noreferrer" title="เปิด Police Worker ในแท็บใหม่">
+    <img src="pw-logo.png" alt="" width="40" height="40" decoding="async" />
+    <span class="pw-float-text">
+      <strong>Police Worker</strong>
+      <small>เว็บไซต์รวมเรื่องเกี่ยวกับตำรวจ</small>
+    </span>
+  </a>
+  <button type="button" class="pw-float-close" id="pwClose" aria-label="ซ่อน Police Worker">&times;</button>
+</aside>
+
 <footer>
   <div style="margin-bottom: 6px;">พี่รุ่นไรน้อง · ระบบค้นหา นรต.</div>
   <div style="font-size: 11px; color: var(--text-3); margin-bottom: 4px;">
     👁️ ผู้เข้าชมวันนี้: <strong id="pvToday" style="color:var(--text-2)">-</strong> | รวมทั้งหมด: <strong id="pvTotal" style="color:var(--text-2)">-</strong>
   </div>
   <div style="font-size: 11px; color: var(--text-3);">
-    <span id="liveUpdateTime">อัปเดตล่าสุด วันที่ 4 มิถุนายน 2569 เวลา 12.30 น. Version 2.0</span> · <a href="#" id="footerTos" style="color: #3b82f6; font-weight: 600; text-decoration: none;">TOS</a>
+    <span id="liveUpdateTime">อัปเดตล่าสุด วันที่ 6 พฤศจิกายน 2569 เวลา 23.13 น. Version 2.0</span> · <a href="#" id="footerTos" style="color: #3b82f6; font-weight: 600; text-decoration: none;">TOS</a>
   </div>
 </footer>
 
@@ -1580,11 +1692,17 @@
     requestAnimationFrame(loop);
   })();
 
-  // ── Vanta.js Background ──
+  // ── Vanta.js Background + ปุ่มสลับกลางวัน/กลางคืน ──
   // Scripts for Vanta are loaded right before the closing body tag
+  // กลางคืน = พื้นดำ (ค่าเดิม) / กลางวัน = ฟ้าหม่น (ไม่ใช่ขาว เพื่อให้ตัวอักษรยังอ่านชัดและพื้นไม่จืด)
+  const VANTA_THEMES = {
+    dark:  { color: 0x090f1d, shininess: 25.00, waveHeight: 15.00, zoom: 0.75 },
+    light: { color: 0x8ba6c1, shininess: 12.00, waveHeight: 12.00, zoom: 0.85 }
+  };
+  const currentTheme = () => document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  let vantaEffect = null;
   if (typeof VANTA !== 'undefined') {
-    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    VANTA.WAVES({
+    vantaEffect = VANTA.WAVES({
       el: "#vanta-bg",
       mouseControls: true,
       touchControls: true,
@@ -1593,14 +1711,41 @@
       minWidth: 200.00,
       scale: 1.00,
       scaleMobile: 1.00,
-      color: isDark ? 0x090f1d : 0xe3eaf5,
-      shininess: isDark ? 25.00 : 40.00,
-      waveHeight: 15.00,
       waveSpeed: 0.45,
-      zoom: 0.75
+      ...VANTA_THEMES[currentTheme()]
     });
   }
-  
+  document.getElementById('btnTheme').addEventListener('click', () => {
+    haptic();
+    const next = currentTheme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('peerunrai-theme', next); } catch (e) {}
+    if (vantaEffect && vantaEffect.setOptions) vantaEffect.setOptions(VANTA_THEMES[next]);
+  });
+
+  // ── การ์ดลอย Police Worker: โผล่หลังโหลด 1.2 วิ ปิดได้ แล้วซ่อนไว้ 7 วัน ──
+  (function () {
+    const card = document.getElementById('pwFloat');
+    if (!card) return;
+    const KEY = 'peerunrai-pw-hidden-at';
+    const HIDE_MS = 7 * 24 * 60 * 60 * 1000;
+    try {
+      const t = Number(localStorage.getItem(KEY));
+      if (t > 0 && Date.now() - t < HIDE_MS) { card.remove(); return; }
+    } catch (e) {}
+    setTimeout(() => {
+      card.classList.add('show');
+      document.body.classList.add('pw-open');
+    }, 1200);
+    document.getElementById('pwClose').addEventListener('click', () => {
+      haptic();
+      card.classList.remove('show');
+      document.body.classList.remove('pw-open');
+      try { localStorage.setItem(KEY, String(Date.now())); } catch (e) {}
+      setTimeout(() => card.remove(), 300);
+    });
+  })();
+
   const params = new URLSearchParams(window.location.search);
   const modalToOpen = params.get('modal');
   if (modalToOpen === 'tos') {
