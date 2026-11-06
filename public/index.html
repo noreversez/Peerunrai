@@ -808,7 +808,7 @@
       opacity: 0;
       pointer-events: none;
       transform: translateY(16px);
-      transition: opacity .3s, transform .3s;
+      transition: opacity .3s, transform .3s, border-radius .25s;
     }
     .pw-float.show { opacity: 1; pointer-events: auto; transform: none; }
     .pw-float-link {
@@ -833,6 +833,10 @@
       gap: 2px;
       min-width: 0;
       line-height: 1.25;
+      max-width: 220px;
+      overflow: hidden;
+      white-space: nowrap;
+      transition: max-width .25s ease, opacity .2s;
     }
     .pw-float-text strong { font-size: 13px; font-weight: 700; }
     .pw-float-text small  { font-size: 11px; color: var(--text-2); }
@@ -849,13 +853,20 @@
       line-height: 1;
       cursor: pointer;
       flex-shrink: 0;
+      overflow: hidden;
+      transition: width .25s, margin .25s, opacity .2s;
     }
     .pw-float-close:hover { background: var(--bg-3); color: var(--text-1); }
+    /* เลื่อนหน้าลง → ย่อเหลือแค่โลโก้ ไม่บังรายชื่อ (เลื่อนกลับบนสุดแล้วขยายคืน) */
+    .pw-float.compact { border-radius: 28px; }
+    .pw-float.compact .pw-float-link { gap: 0; padding: 8px; }
+    .pw-float.compact .pw-float-text { max-width: 0; opacity: 0; }
+    .pw-float.compact .pw-float-close { width: 0; margin: 0; opacity: 0; pointer-events: none; }
     /* การ์ดแสดงอยู่ → ดันปุ่มกลับขึ้นบนให้พ้นการ์ด และเว้นท้ายหน้าไม่ให้การ์ดบังข้อความ */
     body.pw-open .back-to-top { bottom: 102px; }
     body.pw-open footer { padding-bottom: 100px; }
     @media (prefers-reduced-motion: reduce) {
-      .pw-float { transition: none; }
+      .pw-float, .pw-float-text, .pw-float-close { transition: none; }
     }
 
     /* ── Mobile Optimization ── */
@@ -870,8 +881,10 @@
       .nav-icon-btn { padding: 7px 6px; }
       .modal-sheet { max-height: 92vh; border-radius: 16px 16px 0 0; }
       .back-to-top { bottom: 20px; right: 20px; width: 44px; height: 44px; }
-      .pw-float { right: 16px; bottom: 16px; }
+      .pw-float { right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
       body.pw-open .back-to-top { bottom: 88px; }
+      /* กำลังพิมพ์ค้นหา: คีย์บอร์ดมือถือจะดันปุ่มลอยขึ้นมาทับช่องพิมพ์ จึงซ่อนไว้ชั่วคราว */
+      body.typing .pw-float { opacity: 0; pointer-events: none; transform: translateY(16px); }
     }
 
     /* จอแคบ (มือถือส่วนใหญ่): แถบเมนูมี 5 ปุ่ม ต้องประหยัดพื้นที่ ไม่งั้นปุ่มท้ายสุดล้นจอ */
@@ -1187,7 +1200,7 @@
     👁️ ผู้เข้าชมวันนี้: <strong id="pvToday" style="color:var(--text-2)">-</strong> | รวมทั้งหมด: <strong id="pvTotal" style="color:var(--text-2)">-</strong>
   </div>
   <div style="font-size: 11px; color: var(--text-3);">
-    <span id="liveUpdateTime">อัปเดตล่าสุด วันที่ 6 พฤศจิกายน 2569 เวลา 23.13 น. Version 2.0</span> · <a href="#" id="footerTos" style="color: #3b82f6; font-weight: 600; text-decoration: none;">TOS</a>
+    <span id="liveUpdateTime">อัปเดตล่าสุด วันที่ 6 พฤศจิกายน 2569 เวลา 23.21 น. Version 2.0</span> · <a href="#" id="footerTos" style="color: #3b82f6; font-weight: 600; text-decoration: none;">TOS</a>
   </div>
 </footer>
 
@@ -1723,25 +1736,44 @@
     if (vantaEffect && vantaEffect.setOptions) vantaEffect.setOptions(VANTA_THEMES[next]);
   });
 
-  // ── การ์ดลอย Police Worker: โผล่หลังโหลด 1.2 วิ ปิดได้ แล้วซ่อนไว้ 7 วัน ──
+  // ── การ์ดลอย Police Worker ──
+  // ขึ้นทุกครั้งที่เปิดเว็บ (หลังโหลด 1.2 วิ) กด × ปิดได้เฉพาะรอบที่เปิดอยู่ ไม่จำข้ามการเปิด
   (function () {
     const card = document.getElementById('pwFloat');
     if (!card) return;
-    const KEY = 'peerunrai-pw-hidden-at';
-    const HIDE_MS = 7 * 24 * 60 * 60 * 1000;
-    try {
-      const t = Number(localStorage.getItem(KEY));
-      if (t > 0 && Date.now() - t < HIDE_MS) { card.remove(); return; }
-    } catch (e) {}
+
     setTimeout(() => {
       card.classList.add('show');
       document.body.classList.add('pw-open');
     }, 1200);
+
+    // ย่อเหลือแค่โลโก้ ไม่ให้บังรายชื่อ เมื่อ (ก) มีผลค้นหาแสดงอยู่ หรือ (ข) เลื่อนหน้าลงแล้ว
+    // หน้าแรกที่ยังไม่ค้นหา (และอยู่บนสุด) → แสดงเต็ม
+    let ticking = false;
+    const syncCompact = () => {
+      ticking = false;
+      const hasResults = !!document.querySelector('.result-card');
+      card.classList.toggle('compact', hasResults || window.scrollY > 80);
+    };
+    const scheduleSync = () => {
+      if (!ticking) { ticking = true; requestAnimationFrame(syncCompact); }
+    };
+    syncCompact();
+    window.addEventListener('scroll', scheduleSync, { passive: true });
+    // หน้าสั้นลงเอง (เช่นล้างผลค้นหา) ตำแหน่งเลื่อนถูกดึงกลับบนสุดโดยไม่มีเหตุการณ์ scroll → ตรวจซ้ำตามขนาดหน้า
+    if (window.ResizeObserver) new ResizeObserver(scheduleSync).observe(document.body);
+
+    // กำลังพิมพ์ในช่องค้นหา: ซ่อนไว้ชั่วคราว (CSS ใช้เฉพาะจอ ≤600px ที่คีย์บอร์ดดันปุ่มลอยขึ้นมา)
+    const searchBox = document.getElementById('searchInput');
+    if (searchBox) {
+      searchBox.addEventListener('focus', () => document.body.classList.add('typing'));
+      searchBox.addEventListener('blur',  () => document.body.classList.remove('typing'));
+    }
+
     document.getElementById('pwClose').addEventListener('click', () => {
       haptic();
       card.classList.remove('show');
       document.body.classList.remove('pw-open');
-      try { localStorage.setItem(KEY, String(Date.now())); } catch (e) {}
       setTimeout(() => card.remove(), 300);
     });
   })();
